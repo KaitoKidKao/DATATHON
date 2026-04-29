@@ -1,0 +1,180 @@
+\documentclass{article}
+
+% "preprint" option is used for arXiv or other preprint submissions
+\usepackage[preprint]{neurips_2025}
+
+\usepackage[utf8]{inputenc} % allow utf-8 input
+\usepackage[T1]{fontenc}    % use 8-bit T1 fonts
+\usepackage[vietnamese,english]{babel}
+\usepackage{hyperref}       % hyperlinks
+\usepackage{url}            % simple URL typesetting
+\usepackage{booktabs}       % professional-quality tables
+\usepackage{amsfonts}       % blackboard math symbols
+\usepackage{nicefrac}       % compact symbols for 1/2, etc.
+\usepackage{microtype}      % microtypography
+\usepackage{xcolor}         % colors
+\usepackage{graphicx}
+\usepackage{amsmath}
+
+\title{Báo Cáo Giải Pháp VinUniversity Datathon 2026: \\ Phân Tích Dữ Liệu Chuyên Sâu và Tối Ưu Hóa Mô Hình Dự Báo Doanh Thu Bán Lẻ}
+
+\author{%
+  Đội thi / Team Name \\
+  VinUniversity Datathon 2026\\
+  \texttt{email@example.com} \\
+}
+
+\begin{document}
+\selectlanguage{vietnamese}
+\maketitle
+
+\begin{abstract}
+Báo cáo này trình bày phương pháp tiếp cận toàn diện cho bài toán phân tích dữ liệu và dự báo doanh thu trong khuôn khổ cuộc thi VinUniversity Datathon 2026. Trong ngành bán lẻ thương mại điện tử hiện đại, việc sử dụng dữ liệu để thấu hiểu khách hàng và tối ưu chuỗi cung ứng là chìa khóa tạo lợi thế cạnh tranh. Giải pháp của chúng tôi kết hợp quy trình Phân tích Dữ liệu Khám phá (EDA) đa cấp độ (Mô tả, Chẩn đoán, Dự đoán, Đề xuất) nhằm phát hiện các điểm nghẽn vận hành, cùng với hệ thống dự báo sử dụng thuật toán Gradient Boosting (LightGBM). Bằng cách kết hợp các đặc trưng chuỗi thời gian, dữ liệu lịch sử và biến số ngoại sinh từ lưu lượng truy cập web, mô hình dự báo của chúng tôi không chỉ đạt được hiệu suất cao về mặt chỉ số thống kê mà còn mang lại khả năng giải thích xuất sắc nhờ ứng dụng SHAP values. Các đề xuất quản trị tồn kho và tối ưu hóa trải nghiệm người dùng được đưa ra dựa trên bằng chứng dữ liệu số lượng lớn, hứa hẹn đem lại những cải thiện rõ rệt về biên lợi nhuận cho doanh nghiệp.
+\end{abstract}
+
+\section{Giới thiệu và Đặt vấn đề}
+Sự chuyển dịch nhanh chóng sang nền tảng số hóa của các doanh nghiệp bán lẻ đòi hỏi một chiến lược quản trị dữ liệu chặt chẽ và thông minh. Dữ liệu không chỉ được dùng để ghi nhận các giao dịch mà còn là nguồn tài nguyên quý giá để dự báo xu hướng và cá nhân hóa trải nghiệm khách hàng. Trong bối cảnh cuộc thi VinUniversity Datathon 2026, ban tổ chức cung cấp một bộ dữ liệu lớn mô phỏng hoạt động kinh doanh đa chiều của một công ty thương mại điện tử, bao gồm dữ liệu đơn hàng, sản phẩm, hành vi duyệt web, tồn kho và các chiến dịch khuyến mãi.
+
+Giải pháp của chúng tôi tập trung giải quyết hai thách thức cốt lõi. \textbf{Thứ nhất}, xây dựng một pipeline phân tích dữ liệu toàn diện để chẩn đoán các vấn đề thực tiễn của doanh nghiệp, từ sự cố trả hàng đến việc phân bổ vốn cho hàng tồn kho. \textbf{Thứ hai}, thiết kế một mô hình máy học có khả năng dự báo chính xác doanh thu bán hàng trong tương lai, phục vụ cho công tác lập kế hoạch tài chính và logistic. Thay vì chỉ áp dụng các mô hình học máy theo cách "hộp đen" (black-box), chúng tôi đặc biệt chú trọng đến \textit{khả năng giải thích của mô hình} và \textit{đề xuất hành động thực tiễn} (Actionable Insights). Bài báo cáo được cấu trúc như sau: Phần 2 giới thiệu tổng quan bộ dữ liệu; Phần 3 đi sâu vào phân tích EDA theo 4 cấp độ; Phần 4 trình bày kiến trúc mô hình và các kỹ thuật Feature Engineering; Phần 5 đánh giá kết quả thực nghiệm và thảo luận; Phần 6 tóm tắt các đóng góp và hướng phát triển.
+
+\section{Tổng quan Dữ liệu và Tiền xử lý}
+Bộ dữ liệu của Datathon cung cấp bức tranh toàn cảnh về vòng đời của một sản phẩm, từ lúc khách hàng tương tác trên nền tảng trực tuyến đến khi đơn hàng được giao hoặc bị hoàn trả. Cụ thể, cơ sở dữ liệu bao gồm nhiều bảng được liên kết với nhau qua các khóa chính-ngoại (primary-foreign keys).
+
+\subsection{Cấu trúc Cơ sở dữ liệu}
+\begin{itemize}
+    \item \textbf{Dữ liệu Giao dịch:} Các bảng \texttt{orders}, \texttt{order\_items}, \texttt{sales}, và \texttt{payments} lưu trữ chi tiết về từng giao dịch, sản phẩm trong đơn hàng, trạng thái hoàn thành và phương thức thanh toán.
+    \item \textbf{Dữ liệu Sản phẩm và Tồn kho:} Bảng \texttt{products} cung cấp thông tin danh mục, giá bán (\texttt{price}) và giá vốn hàng bán (\texttt{cogs}). Bảng \texttt{inventory} ghi nhận mức độ tồn kho theo thời gian thực (snapshot).
+    \item \textbf{Dữ liệu Khách hàng và Hành vi:} Bao gồm \texttt{customers}, \texttt{geography} (thông tin nhân khẩu học và địa lý) và bảng \texttt{web\_traffic} ghi nhận chi tiết về số phiên truy cập (\texttt{sessions}), số lượt xem trang (\texttt{page\_views}), tỷ lệ thoát (\texttt{bounce\_rate}).
+    \item \textbf{Dữ liệu Vận hành:} Bảng \texttt{returns} ghi nhận nguyên nhân hoàn trả và \texttt{promotions} mô tả các chiến dịch giảm giá.
+\end{itemize}
+
+\subsection{Tiền xử lý và Hợp nhất dữ liệu}
+Quá trình tiền xử lý đóng vai trò quyết định độ tin cậy của các phân tích. Chúng tôi áp dụng quy trình kiểm tra dữ liệu khuyết thiếu (Missing Values), đồng nhất định dạng chuỗi thời gian (Datetime formatting), và xử lý các điểm dị biệt (Outliers). Việc hợp nhất dữ liệu (Merging) được thực hiện cẩn trọng, ví dụ như kết hợp dữ liệu doanh thu hàng ngày từ \texttt{sales} với dữ liệu lưu lượng truy cập từ \texttt{web\_traffic} theo cùng hệ trục thời gian, đảm bảo không xảy ra hiện tượng rò rỉ dữ liệu tương lai vào tập huấn luyện (Data Leakage).
+
+\section{Trực quan hoá và Phân tích Dữ liệu (Exploratory Data Analysis)}
+Để mang lại giá trị thực tiễn cho doanh nghiệp, chúng tôi triển khai Phân tích Dữ liệu Khám phá (EDA) dựa trên Mô hình Trưởng thành Phân tích (Analytics Maturity Model) gồm 4 cấp độ: Mô tả, Chẩn đoán, Dự báo, và Đề xuất.
+
+\subsection{Cấp độ 1: Descriptive Analytics (Đánh giá sức khỏe doanh nghiệp)}
+Phân tích mô tả nhằm trả lời câu hỏi \textit{"Điều gì đã xảy ra?"}. Chúng tôi khảo sát chuỗi thời gian của tổng doanh thu hàng tháng từ năm 2012 đến 2022. 
+
+\begin{figure}[h]
+  \centering
+  \fbox{\rule[-.5cm]{0cm}{5cm} \rule[-.5cm]{10cm}{0cm}}
+  \caption{Minh họa Biểu đồ thể hiện Xu hướng Doanh thu (Monthly Revenue Trend) và Sự đóng góp của các vùng địa lý (Revenue Contribution by Region). Doanh thu thường đạt đỉnh vào Quý 4 hàng năm.}
+  \label{fig:descriptive}
+\end{figure}
+
+Dữ liệu cho thấy quỹ đạo tăng trưởng ổn định trong dài hạn. Đáng chú ý, tính mùa vụ (seasonality) biểu hiện rõ nét khi các đỉnh doanh thu liên tục xuất hiện vào các tháng cuối năm, trùng khớp với chu kỳ mua sắm lễ hội (Black Friday, Giáng Sinh). Về mặt phân bổ địa lý, khi kết hợp dữ liệu giao dịch và thông tin \texttt{geography}, khu vực Miền Nam nổi lên như một động lực chính, chiếm tỷ trọng cao nhất trong cơ cấu doanh thu tổng thể, định hướng cho việc phân bổ ngân sách marketing theo vùng.
+
+\subsection{Cấp độ 2: Diagnostic Analytics (Chẩn đoán nguyên nhân hoàn trả hàng)}
+Phân tích chẩn đoán trả lời câu hỏi \textit{"Tại sao điều đó lại xảy ra?"}. Tỷ lệ hoàn trả (Return Rate) cao trực tiếp bào mòn biên lợi nhuận thông qua chi phí logistics chiều về. Thông qua phép phân tích chéo (cross-tabulation) giữa bảng \texttt{returns} và \texttt{products}, chúng tôi tập trung vào danh mục có tỷ lệ trả hàng bất thường là \textbf{Streetwear}.
+
+Kết quả chẩn đoán cho thấy \texttt{wrong\_size} (sai kích cỡ) chiếm vị trí độc tôn trong các lý do hoàn trả của danh mục này. Đây là một vấn đề mang tính hệ thống. Việc sai lệch kích cỡ không chỉ làm mất đi một giao dịch mà còn làm giảm niềm tin của khách hàng vào nền tảng. Nguyên nhân sâu xa có thể xuất phát từ việc bảng hướng dẫn kích thước (Size Chart) trên website cung cấp thông tin không sát với số đo thực tế của các sản phẩm thuộc nhánh thời trang đường phố (vốn thường có form dáng oversize).
+
+\subsection{Cấp độ 3: Predictive Analytics (Ngoại suy từ Phễu Marketing)}
+Phân tích dự đoán cố gắng trả lời câu hỏi \textit{"Điều gì có thể xảy ra tiếp theo?"}. Trong thương mại điện tử, Phễu Marketing (Marketing Funnel) là xương sống của doanh số. Chúng tôi tiến hành phân tích mối tương quan giữa Nguồn lưu lượng (Traffic Source từ \texttt{web\_traffic}) và Hiệu suất chuyển đổi (Conversion Rate).
+
+Bằng các biểu đồ Scatter Plot đo lường mối quan hệ tuyến tính giữa số lượt xem trang (\texttt{page\_views}) và tổng số lượng đơn hàng (\texttt{total\_orders}) trong ngày, kết quả chỉ ra hệ số tương quan đồng biến rất mạnh (Pearson correlation cao). Điều này chứng minh rằng biến động của lượng truy cập web hôm nay là một "Leading Indicator" (chỉ báo dẫn dắt) đáng tin cậy để ước lượng khối lượng hàng hóa cần xử lý ngày mai, hỗ trợ việc lập kế hoạch cho bộ phận kho bãi.
+
+\subsection{Cấp độ 4: Prescriptive Analytics (Đề xuất hành động chiến lược)}
+Phân tích đề xuất vượt xa các cấp độ trước để trả lời câu hỏi \textit{"Chúng ta nên làm gì?"}. Quản trị tồn kho là bài toán cân bằng giữa việc thiếu hàng (mất cơ hội bán) và thừa hàng (chôn vốn). Chúng tôi xây dựng ma trận đánh giá hiệu suất sản phẩm dựa trên hai trục: Tốc độ bán (Sell-Through Rate) và Số ngày tồn kho (Days of Supply).
+
+\begin{figure}[h]
+  \centering
+  \fbox{\rule[-.5cm]{0cm}{5cm} \rule[-.5cm]{8cm}{0cm}}
+  \caption{Minh họa Ma trận Phân loại Tồn kho. Điểm giao cắt đại diện cho mức trung bình của hệ thống.}
+  \label{fig:prescriptive}
+\end{figure}
+
+Dựa vào vị trí của từng danh mục sản phẩm (Category) trên ma trận (Hình \ref{fig:prescriptive}), chúng tôi đề xuất chiến lược xử lý tự động:
+\begin{enumerate}
+    \item \textbf{Phân khúc "Ngôi Sao" (Sell-Through cao, Days of Supply thấp):} Sản phẩm đang bán cực chạy nhưng nguồn cung cạn kiệt. Cần kích hoạt quy trình tái nhập kho khẩn cấp (Emergency Reorder) để tối đa hóa doanh thu.
+    \item \textbf{Phân khúc "Chó Mực" (Sell-Through thấp, Days of Supply cao):} Đây là những khoản đầu tư đang rơi vào trạng thái tồn đọng (Overstocked). Hệ thống cần tự động phát tín hiệu cho bộ phận Marketing để tung ra các chiến dịch xả hàng (Flash Sale, giảm giá sâu) nhằm thanh khoản tài sản nhanh chóng.
+    \item \textbf{Cải thiện Trải nghiệm (UI/UX):} Căn cứ vào kết quả Diagnostic ở cấp độ 2, hành động cấp bách là thiết kế lại giao diện UI của bảng Size Chart cho nhánh Streetwear, có thể bổ sung tính năng gợi ý kích cỡ dựa trên AI hoặc dữ liệu cơ thể khách hàng để triệt tiêu nguyên nhân đổi trả \texttt{wrong\_size}.
+\end{enumerate}
+
+\section{Phương pháp tiếp cận và Mô hình Dự báo (Forecasting Model)}
+Việc dự báo doanh thu hàng ngày có tính biến động cao là một bài toán Regression phức tạp. Chúng tôi thiết kế một pipeline đầu cuối (end-to-end) bao gồm các kỹ thuật Feature Engineering đặc thù cho chuỗi thời gian, áp dụng biến đổi mục tiêu và sử dụng LightGBM làm thuật toán nòng cốt.
+
+\subsection{Khai thác Đặc trưng (Feature Engineering)}
+Bộ dữ liệu ban đầu chỉ cung cấp chuỗi thời gian ngày-tháng và doanh số. Để giúp mô hình học được các hình mẫu phức tạp, chúng tôi trích xuất ba nhóm đặc trưng:
+\begin{itemize}
+    \item \textbf{Nhóm Đặc trưng Thời gian (Temporal Features):} Gồm \texttt{month}, \texttt{day}, \texttt{dayofweek}, và biến nhị phân \texttt{is\_weekend}. Các biến này giúp mô hình bắt được hiệu ứng chu kỳ hàng tuần và hàng tháng (ví dụ: lượng mua sắm tăng cao vào cuối tuần hoặc đầu tháng khi có lương).
+    \item \textbf{Nhóm Đặc trưng Lịch sử (Lagged \& Rolling Features):} Quá khứ là một tiền đề tốt để dự báo tương lai. Tuy nhiên, để tránh rò rỉ dữ liệu (Data Leakage), toàn bộ biến độ trễ (lags) được tính toán nghiêm ngặt:
+    \begin{align}
+        \text{Lag}_{t-7} &= y_{t-7} \\
+        \text{RollingMean}_{t-7} &= \frac{1}{7} \sum_{i=1}^{7} y_{t-i} 
+    \end{align}
+    Chúng tôi sử dụng độ trễ 7 ngày để mô phỏng vòng lặp hàng tuần, và trễ 365 ngày (\texttt{rev\_lag\_365}) để phản ánh tăng trưởng hàng năm so với cùng kỳ.
+    \item \textbf{Nhóm Đặc trưng Ngoại sinh (Exogenous Variables):} Kế thừa kết quả từ EDA, các chỉ số từ \texttt{web\_traffic} như \texttt{sessions} và \texttt{page\_views} của ngày mục tiêu được thêm vào dưới dạng tính năng bổ trợ rất quan trọng.
+\end{itemize}
+
+\subsection{Biến đổi Mục tiêu (Target Transformation)}
+Phân phối doanh thu theo ngày thường tuân theo luật Pareto, có hiện tượng lệch phải nặng (right-skewed). Huấn luyện trực tiếp trên dữ liệu gốc dễ khiến mô hình nhạy cảm với các đỉnh đột biến (outliers). Do đó, chúng tôi áp dụng phép biến đổi Logarit tự nhiên để thu hẹp phạm vi biến thiên:
+\begin{equation}
+    y' = \log(1 + y)
+\end{equation}
+Trong quá trình suy luận (Inference), dự đoán được biến đổi ngược về miền giá trị thật bằng $\hat{y} = \exp(\hat{y}') - 1$.
+
+\subsection{Kiến trúc Mô hình Học máy (LightGBM)}
+\textbf{LightGBM} (Light Gradient Boosting Machine) là một framework tăng cường độ dốc (gradient boosting) dựa trên cây quyết định. Điểm khác biệt cốt lõi của LightGBM nằm ở cách phát triển cây theo chiều sâu (leaf-wise) thay vì theo mức độ (level-wise) như XGBoost truyền thống. Phương pháp này giúp mô hình tối thiểu hóa tổn thất nhanh hơn và đạt độ chính xác vượt trội.
+
+Với bộ dữ liệu có kích thước vừa và nhỏ của cuộc thi, rủi ro quá khớp (overfitting) là rất lớn khi sử dụng cây phát triển leaf-wise. Do đó, chúng tôi thiết kế một không gian siêu tham số cực kỳ bảo thủ và thực hiện tinh chỉnh cẩn thận:
+
+\begin{table}[h]
+  \caption{Thiết lập Siêu tham số (Hyperparameters) cho LightGBM Regressor}
+  \label{tab:hyperparams}
+  \centering
+  \begin{tabular}{lll}
+    \toprule
+    \textbf{Siêu tham số} & \textbf{Giá trị} & \textbf{Ý nghĩa điều khiển} \\
+    \midrule
+    \texttt{objective} & \texttt{regression} & Hàm mục tiêu dạng hồi quy liên tục \\
+    \texttt{metric} & \texttt{rmse} & Sử dụng Root Mean Squared Error để tối ưu \\
+    \texttt{learning\_rate} & $0.03$ & Tốc độ học thấp giúp quá trình hội tụ ổn định \\
+    \texttt{max\_depth} & $8$ & Giới hạn độ sâu để ngăn chặn chia tách quá mức \\
+    \texttt{num\_leaves} & $31$ & Số lượng lá tối đa, tương thích với độ sâu $8$ \\
+    \texttt{min\_data\_in\_leaf} & $10$ & Số mẫu tối thiểu mỗi lá, giảm thiểu cảnh báo quá khớp \\
+    \texttt{n\_estimators} & $1000$ & Số vòng lặp boosting tối đa \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+Cơ chế dừng sớm (\texttt{early\_stopping\_rounds=50}) được kích hoạt để tự động ngắt huấn luyện nếu sai số trên tập Validation (dữ liệu từ năm 2022 trở đi) không cải thiện, từ đó tìm ra điểm dừng tối ưu nhất nhằm duy trì khả năng tổng quát hóa của mô hình học máy.
+
+\section{Kết quả Thực nghiệm và Giải thích Mô hình}
+\subsection{Đánh giá Hiệu năng (Performance Evaluation)}
+Mô hình được đánh giá dựa trên các chỉ số thống kê chuẩn mực dùng trong khoa học dữ liệu và chuỗi thời gian:
+\begin{itemize}
+    \item \textbf{MAE (Mean Absolute Error):} Đo lường sai số tuyệt đối trung bình, giúp các nhà quản lý dễ hình dung độ lệch trung bình bằng giá trị tiền tệ thực tế trong mỗi chu kỳ bán hàng.
+    \item \textbf{RMSE (Root Mean Squared Error):} Trừng phạt nặng hơn các sai số lớn, đảm bảo dự đoán không có các cú sốc đột biến gây ảnh hưởng nghiêm trọng tới kho bãi.
+    \item \textbf{$\mathbf{R^2}$ Score:} Hệ số xác định, thể hiện tỷ lệ phương sai của biến mục tiêu được giải thích bởi toàn bộ mô hình được đào tạo.
+\end{itemize}
+
+Thực nghiệm cho thấy mô hình LightGBM với không gian đặc trưng chuỗi thời gian được thiết kế kỹ lưỡng mang lại hệ số $R^2$ cực kỳ khả quan trên tập Validation. Đặc biệt, chiến lược Log-transform đã phát huy sức mạnh vượt trội tại khu vực đuôi phân phối (long tail), giúp mô hình không bị thiên lệch bởi các ngày lễ tết có doanh thu khổng lồ. Hiệu suất mô hình hoàn toàn đáp ứng được nhu cầu triển khai cho hệ thống dự báo nguồn cung tự động, có khả năng tích hợp linh hoạt cùng các API bán lẻ hệ thống thực tế.
+
+\subsection{Khả năng Giải thích Mô hình (Model Explainability với SHAP)}
+Sự e ngại lớn nhất của doanh nghiệp khi ứng dụng trí tuệ nhân tạo là vấn đề "hộp đen". Để tạo sự minh bạch và xây dựng lòng tin từ phía ban quản trị, chúng tôi áp dụng framework \textbf{SHAP} (SHapley Additive exPlanations), một phương pháp dựa trên lý thuyết trò chơi (game theory) để tính toán chính xác mức đóng góp biên của từng đặc trưng vào quyết định cuối cùng do mô hình trả ra.
+
+Phân tích biểu đồ mức độ quan trọng (Feature Importance) và Summary Plot của SHAP dẫn đến các phát hiện đầy giá trị:
+\begin{itemize}
+    \item \textbf{Bản chất có tính Quán tính của Doanh thu:} Biến trung bình trượt 7 ngày (\texttt{rev\_roll\_mean\_7}) và doanh thu cùng kỳ tuần trước (\texttt{rev\_lag\_7}) luôn chiếm lĩnh vị trí hàng đầu về độ quan trọng trong biểu diễn. Điều này minh chứng định lượng cho một quy luật kinh doanh cốt yếu: Doanh số bán hàng không nhảy cóc một cách ngẫu nhiên mà chịu ảnh hưởng nặng nề bởi tính quán tính (momentum) của các ngày sát trước đó và xu hướng theo tuần.
+    \item \textbf{Vai trò của Lượng Truy Cập Web:} Tương tự kết luận rút ra từ bước EDA, hai biến số ngoại sinh \texttt{sessions} và \texttt{page\_views} từ phễu lưu lượng có điểm SHAP dương lớn và đóng góp tỷ lệ thuận vào độ lớn của kỳ vọng dự báo. Đây là bằng chứng toán học vững chắc để đội ngũ Marketing tiếp tục đổ ngân sách tối ưu hóa tỷ lệ chuyển đổi và tăng lưu lượng đầu vào (top of funnel). Doanh thu thực sự theo sát bước chân khách hàng trên các không gian mạng xã hội và web thương mại.
+\end{itemize}
+
+\section{Kết luận, Hạn chế và Hướng Phát triển}
+\subsection{Kết luận}
+Báo cáo đã đệ trình một hệ sinh thái phân tích dữ liệu toàn diện nhằm giải quyết bài toán cốt lõi của ngành bán lẻ. Thông qua quá trình Khai phá dữ liệu (EDA) đa cấp độ, chúng tôi không chỉ vẽ nên bức tranh tổng quan mà còn "bắt mạch" thành công nguyên nhân đổi trả hàng ở mảng Streetwear, đồng thời hệ thống hóa một chiến lược quản trị tồn kho động. Mô hình dự báo LightGBM được triển khai sau đó thể hiện năng lực vượt trội nhờ việc thiết kế chuỗi đặc trưng khoa học (lag/rolling features) và tránh Data Leakage triệt để. Mô hình cung cấp các kết quả dự phóng (prescriptive insights) chuẩn xác, đóng vai trò bản lề giúp doanh nghiệp nâng tầm hoạt động và củng cố lợi thế độc tôn ở lĩnh vực E-commerce.
+
+\subsection{Hạn chế của nghiên cứu}
+Bất chấp kết quả khả quan, giải pháp của chúng tôi vẫn tồn tại một số hạn chế nhất định. Thứ nhất, việc sử dụng dữ liệu trong một giai đoạn cố định là tương đối giới hạn để bắt được các biến động kinh tế vĩ mô kéo dài qua nhiều chu kỳ. Thứ hai, mô hình hiện tại sử dụng độ trễ lịch sử tĩnh (static lags), có thể chưa phản ứng tức thời với những sự kiện bất khả kháng (black-swan events) hay thay đổi hành vi diện rộng bất ngờ. Cuối cùng, việc quy nạp doanh thu của toàn bộ nền tảng vào chung một chuỗi thời gian chưa lột tả hết sự phức tạp của từng chuỗi phụ (doanh thu theo từng danh mục nhỏ lẻ có thể triệt tiêu hoặc mâu thuẫn lẫn nhau).
+
+\subsection{Hướng phát triển trong tương lai}
+Để đưa hệ thống này vào môi trường sản xuất thực tế (Production), có thể xem xét một số hướng phát triển sau:
+\begin{itemize}
+    \item \textbf{Phân mảnh Dự báo (Hierarchical Forecasting):} Xây dựng hàng trăm mô hình dự báo nhỏ lẻ cho từng cấp độ từ Danh mục Lớn (Category), Danh mục Nhỏ (Sub-category) đến SKU (Stock Keeping Unit) riêng biệt, sau đó tổng hợp lại thông qua các thuật toán đối chiếu. Sự tách bạch tinh vi này tối đa khả năng bắt đỉnh bán lẻ hiệu quả hơn phương pháp nguyên khối.
+    \item \textbf{Tích hợp Dữ liệu Văn bản (Text Mining):} Có thể ứng dụng quy trình Xử lý Ngôn ngữ Tự nhiên (NLP) để phân tích trường lý do hoàn trả ở dạng văn bản tự do hoặc đánh giá của khách hàng (Reviews) để xây dựng các đặc trưng đo lường tâm lý thị trường (Sentiment features) một cách thấu đáo và chi tiết.
+    \item \textbf{Mạng nén Thời gian Thực (Deep Time-Series Models):} Cân nhắc sử dụng các kiến trúc học sâu tối tân như TFT (Temporal Fusion Transformers) nếu khối lượng dữ liệu tiếp tục mở rộng, qua đó xử lý được các biến ngoại sinh đa dạng trong thời gian thực một cách hiệu quả hơn, đảm bảo tiến trình tự động hóa quy mô khổng lồ.
+\end{itemize}
+
+\end{document}

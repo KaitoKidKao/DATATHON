@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Phần 2 — EDA Report · DATATHON 2026</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f4f0;color:#1a1a18;padding:0 0 60px}
+.page{max-width:1140px;margin:0 auto;padding:0 24px}
+.masthead{background:#1a1a18;color:white;padding:22px 24px;margin-bottom:22px}
+.masthead h1{font-size:21px;font-weight:500;margin-bottom:5px}
+.masthead p{font-size:12px;color:#9c9a92;line-height:1.6}
+.chips{display:flex;gap:7px;margin-top:12px;flex-wrap:wrap}
+.chip{font-size:10px;padding:3px 10px;border-radius:10px;font-weight:500}
+.story-bridge{display:flex;align-items:flex-start;gap:14px;padding:13px 17px;border-radius:8px;margin:-4px 0 16px;background:#fffbf0;border-left:3px solid #EF9F27}
+.sb-icon{font-size:16px;flex-shrink:0;margin-top:2px}
+.sb-text{font-size:11.5px;color:#5a5a56;line-height:1.7}
+.sb-text b{color:#1a1a18;font-weight:500}
+.level-block{border-radius:10px;margin-bottom:18px;overflow:hidden;border:1px solid #e8e6e0;box-shadow:0 1px 4px rgba(0,0,0,.05)}
+.level-hdr{display:flex;align-items:center;gap:10px;padding:13px 17px;border-bottom:1px solid #e8e6e0}
+.level-badge{width:30px;height:30px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;flex-shrink:0}
+.level-title{font-size:13.5px;font-weight:500;flex:1}
+.pts{font-size:10px;font-weight:500;padding:2px 9px;border-radius:4px;white-space:nowrap}
+.level-body{padding:16px 17px;background:white}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:13px;margin-bottom:13px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:13px}
+.g2w{display:grid;grid-template-columns:1.5fr 1fr;gap:13px;margin-bottom:13px}
+.g2n{display:grid;grid-template-columns:1fr 1.5fr;gap:13px;margin-bottom:13px}
+.card{border:1px solid #e8e6e0;border-radius:9px;padding:13px 14px;background:white}
+.card-accent-purple{border-left:3px solid #534AB7;border-radius:0 9px 9px 0}
+.card-accent-green{border-left:3px solid #1D9E75;border-radius:0 9px 9px 0}
+.card-accent-amber{border-left:3px solid #EF9F27;border-radius:0 9px 9px 0}
+.card-accent-red{border-left:3px solid #E24B4A;border-radius:0 9px 9px 0}
+.card-genz{border:2px solid #EF9F27;border-radius:9px;background:#fffcf2}
+.ct{font-size:11.5px;font-weight:500;margin-bottom:6px;color:#1a1a18}
+.cb{font-size:11px;color:#5a5a56;line-height:1.72}
+.cb b{color:#1a1a18;font-weight:500}
+.kpi-row{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:14px}
+.kpi{background:#f4f3ef;border-radius:8px;padding:10px 12px;position:relative}
+.kpi .lbl{font-size:9.5px;color:#73726c;margin-bottom:3px;text-transform:uppercase;letter-spacing:.04em}
+.kpi .val{font-size:20px;font-weight:500;line-height:1.1}
+.kpi .sub{font-size:9.5px;color:#9c9a92;margin-top:3px}
+.kpi .trend{font-size:9px;font-weight:500;padding:1px 5px;border-radius:3px;position:absolute;top:9px;right:9px}
+.bar-r{display:flex;align-items:center;gap:6px;margin-bottom:4px}
+.bl{font-size:10px;color:#73726c;width:102px;flex-shrink:0;text-align:right;line-height:1.3}
+.bt{flex:1;height:9px;background:#f0eeea;border-radius:2px;overflow:hidden}
+.bf{height:100%;border-radius:2px}
+.bv{font-size:10px;color:#9c9a92;width:50px;flex-shrink:0}
+.finding{font-size:11px;padding:7px 11px;border-radius:6px;margin-top:8px;line-height:1.65;background:#f4f3ef;color:#5a5a56}
+.finding b{color:#1a1a18;font-weight:500}
+.finding-green{background:#EAF3DE;color:#3B6D11}
+.finding-green b{color:#27500A}
+.finding-red{background:#FCEBEB;color:#791F1F}
+.finding-red b{color:#501313}
+.finding-amber{background:#FAEEDA;color:#633806}
+.finding-amber b{color:#412402}
+.finding-genz{background:#fffbf0;color:#633806;border-left:3px solid #EF9F27;border-radius:0 6px 6px 0}
+.finding-genz b{color:#412402}
+.action{display:flex;gap:10px;padding:11px 13px;border-radius:8px;margin-bottom:8px;align-items:flex-start;border:1px solid #e8e6e0}
+.an{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;flex-shrink:0;margin-top:2px}
+.ab{flex:1;font-size:11px;color:#5a5a56;line-height:1.65}
+.ab b{color:#1a1a18;font-weight:500}
+.impact{font-size:10px;font-weight:500;padding:2px 7px;border-radius:3px;display:inline-block;margin-top:4px}
+.sec-label{font-size:9.5px;font-weight:500;color:#73726c;text-transform:uppercase;letter-spacing:.07em;margin:14px 0 8px;padding-bottom:4px;border-bottom:1px solid #e8e6e0}
+.stat-inline{display:flex;gap:8px;flex-wrap:wrap;margin:7px 0}
+.stat-pill{background:#f4f3ef;border-radius:5px;padding:4px 9px;font-size:10.5px;color:#1a1a18}
+.stat-pill span{font-weight:500}
+canvas{width:100%!important}
+.note{font-size:10.5px;padding:9px 12px;border-radius:6px;margin:12px 0;background:#EAF3DE;color:#3B6D11}
+.note b{font-weight:500}
+</style>
+</head>
+<body>
+
+<div class="masthead">
+  <div class="page">
+    <h1>Phần 2 — EDA &amp; Business Insights · DATATHON 2026 </h1>
+    <p>Fashion E-commerce Vietnam · 2012–2022 · 15 bảng dữ liệu </p>
+    <div class="chips">
+      <span class="chip" style="background:#534AB7;color:white">① Descriptive</span>
+      <span class="chip" style="background:#BA7517;color:white">② Diagnostic</span>
+      <span class="chip" style="background:#0F6E56;color:white">③ Predictive</span>
+      <span class="chip" style="background:#993C1D;color:white">④ Prescriptive</span>
+    </div>
+  </div>
+</div>
+
+<div class="page">
+
+<!-- ══════════════ DESCRIPTIVE ══════════════ -->
+<div class="level-block">
+  <div class="level-hdr" style="background:#EEEDFE">
+    <div class="level-badge" style="background:#534AB7;color:white">①</div>
+    <div class="level-title" style="color:#534AB7">Descriptive — What happened?  ·  <em style="font-weight:400;font-style:normal"></em></div>
+  </div>
+  <div class="level-body">
+
+    <div class="kpi-row">
+      <div class="kpi">
+        <div class="lbl">Doanh thu 10 năm</div><div class="val">15.68B</div>
+        <div class="sub">VNĐ nghìn · 3,833 ngày</div>
+        <span class="trend" style="background:#EAF3DE;color:#3B6D11">✓ Scale lớn</span>
+      </div>
+      <div class="kpi">
+        <div class="lbl">AOV 2022</div><div class="val" style="color:#1D9E75">30,977</div>
+        <div class="sub">Cao nhất lịch sử · +34% từ 2012</div>
+        <span class="trend" style="background:#EAF3DE;color:#3B6D11">↑ Tốt</span>
+      </div>
+      <div class="kpi">
+        <div class="lbl">Fill Rate TB</div><div class="val" style="color:#1D9E75">96.1%</div>
+        <div class="sub">Ổn định 95–97% mọi năm</div>
+        <span class="trend" style="background:#EAF3DE;color:#3B6D11">✓ Tốt</span>
+      </div>
+      <div class="kpi">
+        <div class="lbl">Avg Rating</div><div class="val" style="color:#BA7517">3.94★</div>
+        <div class="sub">Ổn định · 72% là 4–5 sao</div>
+        <span class="trend" style="background:#FAEEDA;color:#633806">~ Ổn</span>
+      </div>
+      <div class="kpi">
+        <div class="lbl">Return Rate</div><div class="val" style="color:#A32D2D">5.6%</div>
+        <div class="sub">39,939 đơn · 510M refund</div>
+        <span class="trend" style="background:#FCEBEB;color:#791F1F"> Vấn đề</span>
+      </div>
+    </div>
+
+    <div class="sec-label"> <p> Những điểm mạnh đang vận hành tốt <p> </div>
+    <div class="g3">
+      <div class="card card-accent-green">
+        <div class="ct">AOV tăng bền vững dù volume giảm</div>
+        <div style="position:relative;height:110px"><canvas id="aovChart" role="img" aria-label="AOV trend line chart increasing from 23K to 31K"></canvas></div>
+        <div class="finding finding-green"><b>+34% trong 10 năm</b> (23,135 → 30,977). Khách hàng chi nhiều hơn mỗi đơn — tín hiệu brand đang dịch chuyển tự nhiên lên phân khúc cao hơn mà không cần tốn thêm CAC.</div>
+      </div>
+      <div class="card card-accent-green">
+        <div class="ct">Fill rate 96.1% — logistics vận hành xuất sắc</div>
+        <div style="position:relative;height:110px"><canvas id="fillChart" role="img" aria-label="Fill rate area chart stable near 96 percent every year"></canvas></div>
+        <div class="finding finding-green">Không dưới <b>95%</b> trong suốt 10 năm kể cả COVID 2020–2021. Đây là lợi thế vận hành cạnh tranh khó sao chép — khách hàng nhận đủ hàng gần như tất cả trường hợp.</div>
+      </div>
+      <div class="card card-accent-green">
+        <div class="ct">Web traffic tăng đều — awareness được xây dựng tốt</div>
+        <div style="position:relative;height:110px"><canvas id="trafficChart" role="img" aria-label="Daily sessions growing from 18K to 30K per day"></canvas></div>
+        <div class="finding finding-green">Sessions/ngày <b>+62.7%</b> (2013→2022): 18,635 → 30,311. Organic search chiếm <b>30%</b> nguồn khách — kênh chất lượng cao, chi phí thấp nhất trong portfolio.</div>
+      </div>
+    </div>
+
+    <div class="sec-label"> Những vấn đề nghiêm trọng đang xảy ra — nền tảng cho Diagnostic</div>
+    <div class="g2">
+      <div class="card card-accent-red">
+        <div class="ct">Revenue trend: Đỉnh 2016, sụt giảm kéo dài — nghịch lý với signups tăng</div>
+        <div style="position:relative;height:155px"><canvas id="revChart" role="img" aria-label="Revenue bar chart with new signups line showing divergence after 2018"></canvas></div>
+        <div class="finding finding-red"><b>−38.6% năm 2019</b>. Revenue 2022 chỉ bằng 56% đỉnh 2016. Đặc biệt: new signups tăng đều (13K→21K) trong khi đơn hàng giảm từ 69K→36K — <b>tín hiệu vỡ funnel, không thiếu awareness.</b></div>
+      </div>
+      <div class="card card-accent-red">
+        <div class="ct">Conversion rate sụp đổ — traffic nhiều hơn nhưng chuyển đổi ít hơn</div>
+        <div style="position:relative;height:155px"><canvas id="convChart" role="img" aria-label="Conversion rate line falling from 1.12% to 0.1%"></canvas></div>
+        <div class="finding finding-red">Conversion giảm từ <b>1.1% → 0.3%</b> = <b>−72%</b> trong 10 năm. Sessions tăng nhưng conversion giảm liên tục → thị trường có nhiều lựa chọn hơn, khách so sánh trước khi mua.</div>
+      </div>
+    </div>
+
+    <div class="g2w">
+      <div class="card card-accent-amber">
+        <div class="ct">Revenue Heatmap — Năm × Tháng: Mùa vụ và giai đoạn sụt giảm</div>
+        <div style="position:relative;height:165px"><canvas id="heatmapChart" role="img" aria-label="Scatter heatmap of revenue by year and month showing peak April-June and trough Nov-Dec"></canvas></div>
+        <div class="finding finding-amber">T4–6 luôn đậm nhất (peak), T11–12 nhạt nhất (đáy). Giai đoạn 2019–2021 toàn bộ màu nhạt hơn — cho thấy sụt giảm đồng đều tất cả tháng, không phải chỉ vào mùa vụ cụ thể.</div>
+      </div>
+      <div class="card">
+        <div class="ct">Seasonality Index — Đặc thù thị trường VN (ngược Black Friday)</div>
+        <div style="position:relative;height:165px"><canvas id="seasonChart" role="img" aria-label="Seasonality index bar chart peaks April-June 149-153 and troughs Nov-Dec 59-61"></canvas></div>
+        <div class="finding finding-amber"><b>Peak T4–6 (149–153)</b>, <b>đáy T11–12 (59–61)</b>: biên độ 2.6× đặt ra thách thức inventory planning. Nhập hàng sai mùa → overstock T11–12, thiếu hàng T4–6.</div>
+      </div>
+    </div>
+
+    <div class="sec-label">🔍 Cấu trúc doanh thu — và cơ hội ẩn ở GenZ</div>
+    <div class="g2n">
+      <div class="card">
+        <div class="ct">Category: Ma trận Revenue vs Margin — Cơ hội và rủi ro</div>
+        <div style="position:relative;height:195px"><canvas id="catBubbleChart" role="img" aria-label="Bubble chart category revenue vs margin GenZ high margin low revenue Streetwear high revenue low margin"></canvas></div>
+        <div class="finding finding-genz"><b>GenZ = "High Margin, Low Revenue"</b>: margin 20.2% — cao nhất, nhưng chỉ 2% revenue. Đây là <b>cơ hội bị bỏ ngỏ</b>, không phải thất bại. Streetwear ở "High Revenue, Low Margin" — rủi ro tập trung cao.</div>
+      </div>
+      <div class="card card-genz">
+        <div class="ct" style="color:#BA7517">★ GenZ Deep Dive — Category bị "underinvested"</div>
+        <div class="stat-inline">
+          <div class="stat-pill">148 SKU <span style="color:#1D9E75">Trendy</span></div>
+          <div class="stat-pill">Margin <span style="color:#1D9E75">20.2%</span></div>
+          <div class="stat-pill">Share max <span style="color:#EF9F27">3.1%</span> năm 2018</div>
+        </div>
+        <div class="cb" style="margin:7px 0"><b>Ai mua GenZ?</b> Nghịch lý: nhóm tuổi mua nhiều nhất <b>không phải 18–24 mà là 25–34 (30%)</b> và 35–44 (27%). GenZ là label phong cách, không phải nhân khẩu.</div>
+        <div style="position:relative;height:88px"><canvas id="genzAgeChart" role="img" aria-label="Bar chart GenZ buyers by age group showing 25-34 is largest segment not 18-24"></canvas></div>
+        <div class="cb" style="margin-top:8px"><b>Seasonality GenZ ngược chiều:</b> Peak T2 (111.4) và T10 (111.9) — trong khi overall peak là T4–6. GenZ có thể bù đắp doanh thu vào tháng off-peak.</div>
+        <div style="position:relative;height:85px"><canvas id="genzSeasonChart" role="img" aria-label="GenZ vs overall seasonality line chart showing counter-seasonal pattern"></canvas></div>
+        <div class="finding finding-genz"><b>Co-purchase:</b> 62% đơn GenZ đi kèm Streetwear → 2 category bổ trợ nhau, là cơ sở cho cross-sell bundle strategy.</div>
+      </div>
+    </div>
+
+    <div class="g2">
+      <div class="card card-accent-red">
+        <div class="ct">COD — Nguồn hủy đơn gấp đôi các phương thức khác</div>
+        <div style="position:relative;height:120px"><canvas id="codChart" role="img" aria-label="Horizontal bar chart cancel rate COD 16% versus others 8%"></canvas></div>
+        <div class="finding finding-red">Cancel rate COD <b>16.0% vs 8.0%</b>. 15,468 đơn hủy = ~376M lost revenue. Kết hợp chi phí logistics 2 chiều, thiệt hại thực tế lớn hơn nhiều.</div>
+      </div>
+      <div class="card card-accent-amber">
+        <div class="ct">Lý do hoàn trả — 53% hoàn toàn có thể phòng ngừa qua UX</div>
+        <div style="position:relative;height:120px"><canvas id="returnChart" role="img" aria-label="Horizontal bar chart return reasons wrong size 35% is largest preventable reason"></canvas></div>
+        <div class="finding finding-amber">Wrong size (35%) + Not as described (18%) + Late delivery (10%) = <b>53% phòng ngừa được</b>. GenZ return rate 3.52% — cao nhất portfolio, đặc biệt nhạy cảm với visual accuracy.</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+
+
+<!-- ══════════════ DIAGNOSTIC ══════════════ -->
+<div class="level-block">
+  <div class="level-hdr" style="background:#FAEEDA">
+    <div class="level-badge" style="background:#BA7517;color:white">②</div>
+    <div class="level-title" style="color:#BA7517">Diagnostic — Why did it happen?  ·  <em style="font-weight:400;font-style:normal"></em></div>
+  </div>
+  <div class="level-body">
+
+    <div class="g2">
+      <div class="card card-accent-red">
+        <div class="ct">RC#1 — Traffic tăng nhưng conversion sụp đổ: Vấn đề không phải awareness</div>
+        <div style="position:relative;height:145px"><canvas id="dualFunnelChart" role="img" aria-label="Dual axis chart sessions increasing blue while conversion rate decreasing red"></canvas></div>
+        <div class="finding finding-red">Sessions tăng <b>+62%</b>, conversion giảm <b>−72%</b>: năm 2013 cứ 1,000 ghé thăm → 11.6 mua; năm 2022 chỉ còn 3.3 người. <b>Traffic không thiếu — khả năng thuyết phục là vấn đề.</b></div>
+      </div>
+      <div class="card card-accent-amber">
+        <div class="ct">RC#2 — Promo Paradox: Ngày có KM doanh thu thấp hơn 11.8%</div>
+        <div style="position:relative;height:145px"><canvas id="promoChart" role="img" aria-label="Grouped bar chart promo AOV versus no promo AOV every year showing 32% gap"></canvas></div>
+        <div class="finding finding-amber">Đơn có KM AOV thấp hơn <b>32%</b> (19K vs 28K) mọi năm 2013–2022. Ngày promo doanh thu trung bình <b>4.0M vs 4.5M</b> ngày không promo. KM đang <b>train khách chờ sale</b>, không tăng tổng doanh thu.</div>
+      </div>
+    </div>
+
+    <div class="sec-label">🔍 Diagnostic GenZ — Tại sao margin cao nhất nhưng revenue thấp nhất?</div>
+    <div class="g3">
+      <div class="card card-genz">
+        <div class="ct" style="color:#BA7517">GenZ Sell-through giảm dần — Inventory quay vòng chậm hơn trend</div>
+        <div style="position:relative;height:120px"><canvas id="genzInvChart" role="img" aria-label="Line chart GenZ sell-through declining from 20% to 15% vs overall average"></canvas></div>
+        <div class="finding finding-genz">GenZ sell-through <b>20.4% (2013) → 15.4% (2022)</b>. Days of supply median = <b>210 ngày</b> (~7 tháng). Trend thời trang GenZ thay đổi nhanh hơn inventory quay vòng → hàng lỗi thời trước khi bán hết.</div>
+      </div>
+      <div class="card card-genz">
+        <div class="ct" style="color:#BA7517">GenZ Revenue Share bị kẹt 2–3% suốt 10 năm</div>
+        <div style="position:relative;height:120px"><canvas id="genzShareChart" role="img" aria-label="Bar chart GenZ revenue share stagnating at 2-3% despite highest margin"></canvas></div>
+        <div class="finding finding-genz">Share cao nhất <b>3.13% năm 2018</b> rồi tụt xuống. Không năm nào vượt 3.2%. Với 148 SKU và margin 20.2%, đây là <b>thiếu đầu tư marketing và SKU expansion</b>, không phải thiếu nhu cầu.</div>
+      </div>
+      <div class="card card-genz">
+        <div class="ct" style="color:#BA7517">GenZ mua bởi 25–44 tuổi nhưng kênh marketing không nhắm đúng</div>
+        <div style="position:relative;height:120px"><canvas id="genzChanChart" role="img" aria-label="Grouped bar chart showing GenZ buyers have higher social media share than average category"></canvas></div>
+        <div class="finding finding-genz">GenZ buyers dùng <b>social media nhiều hơn</b> (28% vs 20% trung bình). Kênh organic/paid search chiếm quá nhiều budget trong khi GenZ cần visual-first content trên TikTok/Instagram.</div>
+      </div>
+    </div>
+
+    <div class="g2">
+      <div class="card card-accent-purple">
+        <div class="ct">RC#3 — Cohort Retention sụp đổ: Vấn đề cấu trúc, không phải COVID</div>
+        <div style="position:relative;height:140px"><canvas id="retentionChart" role="img" aria-label="Area chart cohort retention rate falling from 94.6% in 2012 to 6.7% in 2021"></canvas></div>
+        <div class="finding finding-red">Cohort 2012: <b>94.6%</b> quay lại; cohort 2021: <b>6.7%</b>. Xu hướng giảm liên tục từ 2012 — <b>không phải COVID</b> mà là thiếu loyalty program và trải nghiệm sau mua không đủ tạo habit.</div>
+      </div>
+      <div class="card card-accent-red">
+        <div class="ct">RC#4 — Inventory nghịch lý: 50.6% SKU vừa stockout vừa overstock</div>
+        <div style="position:relative;height:140px"><canvas id="invParadoxChart" role="img" aria-label="Grouped bar chart stockout rate and overstock rate both above 60% every year simultaneously"></canvas></div>
+        <div class="finding finding-red"><b>50.6% SKU-months</b> có cả 2 flag cùng lúc. Reorder_flag = 0% mọi năm → <b>hệ thống cảnh báo hoàn toàn không hoạt động</b>. Nhập hàng theo lịch cố định, không theo demand → dư thừa lẫn thiếu hụt song song.</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+
+<!-- ══════════════ PREDICTIVE ══════════════ -->
+<div class="level-block">
+  <div class="level-hdr" style="background:#E1F5EE">
+    <div class="level-badge" style="background:#0F6E56;color:white">③</div>
+    <div class="level-title" style="color:#0F6E56">Predictive — What is likely to happen?  ·  <em style="font-weight:400;font-style:normal"></em></div>
+  </div>
+  <div class="level-body">
+    <div class="g3">
+      <div class="card card-accent-green">
+        <div class="ct">Forecast 2023–2024: Phục hồi chậm, peak T4–6 ổn định</div>
+        <div style="position:relative;height:125px"><canvas id="forecastChart" role="img" aria-label="Forecast vs actual monthly revenue 2023-2024 line chart"></canvas></div>
+        <div class="finding">Avg/ngày <b>3.25M</b>, thấp hơn 24% historical. MAPE <b>20.7%</b> — tốt cho 18 tháng rolling. Peak T4–6/2024 kỳ vọng 4.5M+/ngày.</div>
+      </div>
+      <div class="card card-genz">
+        <div class="ct" style="color:#BA7517">GenZ Projection: Share 2% → 8% khả thi với đầu tư đúng</div>
+        <div style="position:relative;height:125px"><canvas id="genzProjectChart" role="img" aria-label="GenZ share projection line chart showing potential growth to 8% with investment versus stagnation without"></canvas></div>
+        <div class="finding finding-genz">Counter-seasonal pattern của GenZ (peak T2, T10) bổ sung cho gap của tổng thể. SKU 148 → 300+ + đúng kênh → <b>+2× sell-through</b> và gross profit tăng 2–3%.</div>
+      </div>
+      <div class="card card-accent-purple">
+        <div class="ct">RFM: At-Risk 1.82 tỷ CLV đang thoát dần nếu không hành động</div>
+        <div style="position:relative;height:125px"><canvas id="rfmPieChart" role="img" aria-label="Donut chart RFM segment revenue contribution highlighting at-risk 1.82B CLV"></canvas></div>
+        <div class="finding finding-red">At Risk recency TB <b>1,565 ngày</b>. Win-back 20% = 2,162 KH × avg 168K = <b>+363M</b>. Cần hành động trong 6 tháng trước khi chuyển Hibernating.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ PRESCRIPTIVE ══════════════ -->
+<div class="level-block">
+  <div class="level-hdr" style="background:#FAECE7">
+    <div class="level-badge" style="background:#993C1D;color:white">④</div>
+    <div class="level-title" style="color:#993C1D">Prescriptive — What should we do?  ·  <em style="font-weight:400;font-style:normal"></em></div>
+  </div>
+  <div class="level-body">
+
+    <div class="sec-label"> Quick Wins — 30–90 ngày · Fix 3 root causes trực tiếp</div>
+    <div class="action" style="background:#fff5f5">
+      <div class="an" style="background:#F7C1C1;color:#791F1F">1</div>
+      <div class="ab"><b>Deposit 10–20% khi chọn COD → cancel rate: 16% → ~8%</b><br>
+        15,468 đơn hủy = 376M lost. Fix 50% → <b>+150–200M/năm</b>. Thêm checkout step + ưu đãi −5% shipping nếu prepaid.
+        <span class="impact" style="background:#FCEBEB;color:#A32D2D">💰 +150–200M/năm · ROI: 30 ngày · Effort: Thấp</span>
+      </div>
+    </div>
+    <div class="action" style="background:#fffbf0">
+      <div class="an" style="background:#FAC775;color:#633806">2</div>
+      <div class="ab"><b>Size guide AI + ảnh on-model → wrong-size return: 35% → ~20%</b><br>
+        −30% wrong-size return → <b>+78M tiết kiệm refund + logistics</b>. <b>GenZ ưu tiên trước</b> vì return rate cao nhất (3.52%) và trendy style đặc biệt cần visual accuracy.
+        <span class="impact" style="background:#FAEEDA;color:#633806">💰 +80–120M/năm · GenZ return giảm trước tiên</span>
+      </div>
+    </div>
+    <div class="action" style="background:#f4f0ff">
+      <div class="an" style="background:#CECBF6;color:#26215C">3</div>
+      <div class="ab"><b>Xóa flash sale 50% → targeted RFM promo theo segment</b><br>
+        Ngày promo doanh thu thấp hơn 11.8%. Champions (40% revenue) → early access không cần discount. At Risk → 15% win-back. New → 10% welcome.
+        <span class="impact" style="background:#EEEDFE;color:#3C3489"> +5–8% overall AOV · ROI: 60 ngày</span>
+      </div>
+    </div>
+
+    <div class="sec-label"> GenZ Strategy — Đòn bẩy cải thiện margin cấu trúc</div>
+    <div class="action" style="background:#fffcf2;border:1px solid #EF9F27">
+      <div class="an" style="background:#FAC775;color:#412402">4</div>
+      <div class="ab"><b>Mở rộng GenZ SKU 148 → 300+ · Chuyển kênh sang TikTok/Instagram · Rotation 60 ngày</b><br>
+        GenZ margin 20.2% vs Streetwear 11.4%. Nếu GenZ đạt <b>8% revenue mix</b> → gross profit tăng <b>2–3% toàn portfolio</b>. Target "youthful aesthetic" không phải tuổi tác (người mua thực 25–44 tuổi). Tận dụng <b>counter-seasonal (T2, T10)</b> để lấp đáy doanh thu tổng thể. Rotate inventory mỗi 60 ngày thay vì 210 ngày hiện tại.
+        <span class="impact" style="background:#FAEEDA;color:#633806"> +2–3% gross margin toàn portfolio · Counter-seasonal buffer</span>
+      </div>
+    </div>
+
+    <div class="sec-label"> Strategic — 6–18 tháng</div>
+    <div class="action" style="background:#f0fbf6">
+      <div class="an" style="background:#9FE1CB;color:#04342C">5</div>
+      <div class="ab"><b>Demand forecasting → Nhập hàng theo forecast × 1.2 safety factor, không theo lịch cố định</b><br>
+        Sell-through 11–14%/tháng → mục tiêu 20%+ → giảm tồn kho 30–40%. Nhập nhiều T2–3 (trước peak), giảm T9–10 (trước off-peak). GenZ: cap tối đa 60 ngày supply/lần nhập.
+        <span class="impact" style="background:#EAF3DE;color:#3B6D11"> Giải phóng 25–35% vốn tồn kho</span>
+      </div>
+    </div>
+
+    <div class="g2" style="margin-top:14px">
+      <div class="card">
+        <div class="ct">Priority Matrix — Impact vs Effort (5 actions)</div>
+        <div style="position:relative;height:185px"><canvas id="tradeoffChart" role="img" aria-label="Bubble chart 5 actions plotted impact vs effort GenZ expansion high impact strategic quadrant"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="ct">Revenue Opportunity — Tổng upside nếu thực hiện đủ 5 actions</div>
+        <div style="position:relative;height:185px"><canvas id="waterfallChart" role="img" aria-label="Bar chart showing incremental revenue from each action totaling over 800M"></canvas></div>
+        <div class="finding"><b>Tổng upside: +800M–1.1 tỷ</b> trong 18 tháng. Quick wins 1–3 tạo cash flow để đầu tư GenZ + Inventory AI. GenZ là <b>đòn bẩy dài hạn duy nhất</b> cải thiện margin cơ cấu của toàn danh mục.</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+</div><!-- /page -->
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+const tc='#5a5a56', gc='rgba(0,0,0,0.055)';
+const years11=['2012','2013','2014','2015','2016','2017','2018','2019','2020','2021','2022'];
+const si=[60.4,81.2,115.0,152.4,153.4,149.9,108.7,103.6,88.6,77.0,60.9,58.9];
+
+/* AOV */
+new Chart('aovChart',{type:'line',data:{labels:years11,datasets:[{
+  data:[23135,20432,22138,21689,24467,23886,25460,25999,28844,28710,30977],
+  borderColor:'#1D9E75',backgroundColor:'rgba(29,158,117,0.08)',fill:true,tension:.4,
+  pointBackgroundColor:['#1D9E75','#E24B4A','#1D9E75','#E24B4A','#1D9E75','#E24B4A','#1D9E75','#1D9E75','#1D9E75','#1D9E75','#1D9E75'],
+  pointRadius:3}]},
+options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+scales:{x:{ticks:{color:tc,font:{size:8}},grid:{display:false}},
+        y:{ticks:{color:tc,font:{size:8},callback:v=>(v/1000).toFixed(0)+'K'},grid:{color:gc}}}}
+});
+
+/* Fill rate */
+new Chart('fillChart',{type:'line',data:{labels:years11,datasets:[{
+  data:[95.4,95.8,96.0,96.0,96.0,96.0,96.3,96.4,96.6,96.2,96.4],
+  borderColor:'#1D9E75',backgroundColor:'rgba(29,158,117,0.15)',fill:true,tension:.3,
+  pointBackgroundColor:'#1D9E75',pointRadius:2}]},
+options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+scales:{x:{ticks:{color:tc,font:{size:8}},grid:{display:false}},
+        y:{min:94,max:98,ticks:{color:tc,font:{size:8},callback:v=>v+'%'},grid:{color:gc}}}}
+});
+
+/* Traffic */
+new Chart('trafficChart',{type:'line',data:{
+  labels:['2013','2014','2015','2016','2017','2018','2019','2020','2021','2022'],
+  datasets:[{data:[18635,20112,21540,22960,24637,25795,27370,28937,30114,30311],
+    borderColor:'#534AB7',backgroundColor:'rgba(83,74,183,0.08)',fill:true,tension:.4,
+    pointBackgroundColor:'#534AB7',pointRadius:2}]},
+options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+scales:{x:{ticks:{color:tc,font:{size:8}},grid:{display:false}},
+        y:{ticks:{color:tc,font:{size:8},callback:v=>(v/1000).toFixed(0)+'K'},grid:{color:gc}}}}
+});
+
+/* Revenue + Signups */
+new Chart('revChart',{type:'bar',data:{labels:years11,datasets:[
+  {label:'Revenue (tỷ)',data:[0.74,1.66,1.87,1.89,2.10,1.91,1.85,1.14,1.05,1.04,1.17],
+   backgroundColor:['#AFA9EC','#AFA9EC','#7F77DD','#7F77DD','#534AB7','#7F77DD','#7F77DD','#E24B4A','#F09595','#F09595','#5DCAA5'],
+   borderRadius:3,yAxisID:'y'},
+  {type:'line',label:'New Signups (K)',data:[0.96,2.99,5.03,7.13,9.20,11.08,13.01,15.06,17.21,19.15,21.10],
+   borderColor:'#EF9F27',borderDash:[3,3],pointBackgroundColor:'#EF9F27',pointRadius:3,tension:.3,yAxisID:'y2',fill:false}
+]},options:{responsive:true,maintainAspectRatio:false,
+plugins:{legend:{labels:{color:tc,font:{size:9},boxWidth:9}}},
+scales:{x:{ticks:{color:tc,font:{size:8}},grid:{display:false}},
+        y:{ticks:{color:tc,font:{size:8},callback:v=>v+'B'},grid:{color:gc}},
+        y2:{position:'right',ticks:{color:'#EF9F27',font:{size:8},callback:v=>v+'K'},grid:{display:false}}}}
+});
+
+/* Conversion rate */
+new Chart('convChart',{type:'line',data:{
+  labels:['2013','2014','2015','2016','2017','2018','2019','2020','2021','2022'],
+  datasets:[{data:[1.165,1.132,1.082,1.006,0.852,0.716,0.428,0.330,0.314,0.331],
+    borderColor:'#E24B4A',backgroundColor:'rgba(226,75,74,0.12)',fill:true,tension:.4,
+    pointBackgroundColor:['#1D9E75','#1D9E75','#EF9F27','#EF9F27','#EF9F27','#EF9F27','#E24B4A','#E24B4A','#E24B4A','#E24B4A'],
+    pointRadius:4,pointStyle:['circle','circle','triangle','triangle','triangle','triangle','crossRot','crossRot','crossRot','crossRot']}]},
+options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+scales:{x:{ticks:{color:tc,font:{size:8}},grid:{display:false}},
+        y:{ticks:{color:tc,font:{size:8},callback: v => Number(v).toFixed(2) + '%'},grid:{color:gc}}}}
+});
+
+/* Heatmap */
+const yrRev=[0.74,1.66,1.87,1.89,2.10,1.91,1.85,1.14,1.05,1.04,1.17];
+const heatData=[];
+for(let y=0;y<11;y++) for(let m=0;m<12;m++) heatData.push({x:m,y:y,v:yrRev[y]*si[m]/100});
+const maxV=Math.max(...heatData.map(d=>d.v));
+new Chart('heatmapChart',{type:'scatter',data:{datasets:[{
+  data:heatData.map(d=>({x:d.x,y:d.y,r:8})),
+  backgroundColor:heatData.map(d=>{
+    const t=d.v/maxV;
+    if(t>0.65)return'rgba(83,74,183,0.88)';
+    if(t>0.45)return'rgba(127,119,221,0.75)';
+    if(t>0.25)return'rgba(175,169,236,0.6)';
+    return'rgba(206,203,246,0.4)';
+  }),pointStyle:'rect',pointRadius:10
+}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+scales:{x:{min:-.5,max:11.5,ticks:{color:tc,font:{size:8},callback:v=>['T1','T2','T3','T4','T5','T6','T7','T8','T9','T10','T11','T12'][v]||''},grid:{display:false}},
+        y:{min:-.5,max:10.5,ticks:{color:tc,font:{size:8},callback:v=>(['2012','2013','2014','2015','2016','2017','2018','2019','2020','2021','2022'][v]||'')},grid:{color:gc}}}}
+});
+
+/* Seasonality */
+new Chart('seasonChart',{type:'bar',data:{
+  labels:['T1','T2','T3','T4','T5','T6','T7','T8','T9','T10','T11','T12'],
+  datasets:[{data:si,backgroundColor:si.map(v=>v>=140?'#E24B4A':v>=100?'#EF9F27':'#85B7EB'),borderRadius:3}]},
+options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+scales:{x:{ticks:{color:tc,font:{size:8}},grid:{display:false}},
+        y:{min:0,max:175,ticks:{color:tc,font:{size:8}},grid:{color:gc},
+           title:{display:true,text:'Index (100=avg)',color:tc,font:{size:9}}}}}
+});
+
+/* Category bubble */
+new Chart('catBubbleChart',{type:'bubble',data:{datasets:[
+  {label:'Streetwear',data:[{x:11.4,y:79,r:22}],backgroundColor:'rgba(83,74,183,0.7)',borderColor:'#534AB7'},
+  {label:'Outdoor',   data:[{x:15.8,y:15,r:14}],backgroundColor:'rgba(29,158,117,0.7)',borderColor:'#1D9E75'},
+  {label:'Casual',    data:[{x:9.5,y:3,r:7}],backgroundColor:'rgba(136,135,128,0.7)',borderColor:'#888780'},
+  {label:'GenZ ★',   data:[{x:20.2,y:2,r:7}],backgroundColor:'rgba(239,159,39,0.9)',borderColor:'#BA7517'},
+]},options:{responsive:true,maintainAspectRatio:false,
+plugins:{legend:{labels:{color:tc,font:{size:9},boxWidth:9}}},
+scales:{x:{title:{display:true,text:'Gross Margin %',color:tc,font:{size:9}},ticks:{color:tc,font:{size:8},callback:v=>v+'%'},grid:{color:gc},min:5,max:25},
+        y:{title:{display:true,text:'Revenue Share %',color:tc,font:{size:9}},ticks:{color:tc,font:{size:8},callback:v=>v+'%'},grid:{color:gc}}}}
+});
+
+/* GenZ age */
+new Chart('genzAgeChart',{type:'bar',data:{
+  labels:['18–24','25–34','35–44','45–54','55+'],
+  datasets:[{data:[5065,11142,9846,6938,4168],
+    backgroundColor:['#EF9F27','#BA7517','#EF9F27','#FAC775','#FAEEDA'],borderRadius:3}]},
+options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+scales:{x:{ticks:{color:tc,font:{size:8}},grid:{display:false}},
+        y:{ticks:{color:tc,font:{size:8},callback:v=>(v/1000).toFixed(0)+'K'},grid:{color:gc}}}}
+});
+
+/* GenZ season vs overall */
+const genzSI=[103.7,111.4,98.3,100.2,110.5,102.4,89.0,110.1,91.8,111.9,100.4,70.4];
+new Chart('genzSeasonChart',{type:'line',data:{
+  labels:['T1','T2','T3','T4','T5','T6','T7','T8','T9','T10','T11','T12'],
+  datasets:[
+    {label:'GenZ SI',data:genzSI,borderColor:'#EF9F27',backgroundColor:'rgba(239,159,39,0.1)',fill:true,tension:.4,pointRadius:3},
+    {label:'Overall',data:si,borderColor:'#AFA9EC',borderDash:[3,3],tension:.4,pointRadius:2,fill:false}
+  ]},
+options:{responsive:true,maintainAspectRatio:false,
+plugins:{legend:{labels:{color:tc,font:{size:8},boxWidth:8}}},
+scales:{x:{ticks:{color:tc,font:{size:8}},grid:{display:false}},
+        y:{ticks:{color:tc,font:{size:8}},grid:{color:gc}}}}
+});
+
+/* COD horizontal */
+new Chart('codChart',{type:'bar',data:{
+  labels:['COD','PayPal','Apple Pay','Credit card','Bank transfer'],
+  datasets:[{data:[16.0,8.1,8.0,8.0,7.9],
+    backgroundColor:['#E24B4A','#AFA9EC','#AFA9EC','#1D9E75','#AFA9EC'],borderRadius:3}]},
+options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+  indexAxis:'y',
+scales:{x:{ticks:{color:tc,font:{size:8},callback:v=>v+'%'},grid:{color:gc}},
+        y:{ticks:{color:tc,font:{size:8}},grid:{display:false}}}}
+});
+
+/* Return reasons */
+new Chart('returnChart',{type:'bar',data:{
+  labels:['Sai size','Hàng lỗi','Không đúng mô tả','Đổi ý','Giao trễ'],
+  datasets:[{data:[35,20,18,17,10],
+    backgroundColor:['#E24B4A','#73726c','#E24B4A','#73726c','#EF9F27'],borderRadius:3}]},
+options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},indexAxis:'y',
+scales:{x:{ticks:{color:tc,font:{size:8},callback:v=>v+'%'},grid:{color:gc}},
+        y:{ticks:{color:tc,font:{size:8}},grid:{display:false}}}}
+});
+
+/* Dual funnel */
+new Chart('dualFunnelChart',{type:'line',data:{
+  labels:['2013','2014','2015','2016','2017','2018','2019','2020','2021','2022'],
+  datasets:[
+    {label:'Sessions/ngày (K)',data:[18.6,20.1,21.5,23.0,24.6,25.8,27.4,28.9,30.1,30.3],
+     borderColor:'#534AB7',yAxisID:'y',tension:.3,pointRadius:3,fill:false},
+    {label:'Conversion %',data:[1.165,1.132,1.082,1.006,0.852,0.716,0.428,0.330,0.314,0.331],
+     borderColor:'#E24B4A',yAxisID:'y2',tension:.3,pointRadius:3,fill:false,borderDash:[4,3]}
+  ]},
+options:{responsive:true,maintainAspectRatio:false,
+plugins:{legend:{labels:{color:tc,font:{size:9},boxWidth:9}}},
+scales:{x:{ticks:{color:tc,font:{size:8}},grid:{display:false}},
+        y:{ticks:{color:tc,font:{size:8},callback:v=>v+'K'},grid:{color:gc}},
+        y2:{position:'right',ticks:{color:'#E24B4A',font:{size:8},callback: v => Number(v).toFixed(2) + '%'},grid:{display:false}}}}
+});
+
+/* Promo comparison */
+new Chart('promoChart',{type:'bar',data:{
+  labels:['2013','2014','2015','2016','2017','2018','2019','2020','2021','2022'],
+  datasets:[
+    {label:'Không KM',data:[24070,25328,25707,27525,27775,28165,30436,32352,33159,35020],backgroundColor:'rgba(29,158,117,0.75)',borderRadius:2},
+    {label:'Có KM',   data:[16202,16611,16998,18659,18991,20043,20514,22729,23122,24063],backgroundColor:'rgba(226,75,74,0.7)',borderRadius:2}
+  ]},
+options:{responsive:true,maintainAspectRatio:false,
+plugins:{legend:{labels:{color:tc,font:{size:9},boxWidth:9}}},
+scales:{x:{ticks:{color:tc,font:{size:8}},grid:{display:false}},
+        y:{ticks:{color:tc,font:{size:8},callback:v=>(v/1000).toFixed(0)+'K'},grid:{color:gc}}}}
+});
+
+/* GenZ sell-through */
+new Chart('genzInvChart',{type:'line',data:{
+  labels:years11,datasets:[
+    {label:'GenZ STR %',data:[17.0,20.4,20.0,19.6,17.8,16.5,18.1,15.2,14.0,15.8,15.4],
+     borderColor:'#EF9F27',backgroundColor:'rgba(239,159,39,0.12)',fill:true,tension:.4,pointRadius:3},
+    {label:'Overall avg %',data:[23.7,20.7,17.7,16.1,15.4,14.7,13.8,11.8,11.3,13.4,13.7],
+     borderColor:'#AFA9EC',borderDash:[3,3],tension:.4,pointRadius:2,fill:false}
+  ]},
+options:{responsive:true,maintainAspectRatio:false,
+plugins:{legend:{labels:{color:tc,font:{size:8},boxWidth:8}}},
+scales:{x:{ticks:{color:tc,font:{size:8}},grid:{display:false}},
+        y:{ticks:{color:tc,font:{size:8},callback:v=>v+'%'},grid:{color:gc}}}}
+});
+
+/* GenZ share */
+new Chart('genzShareChart',{type:'bar',data:{labels:years11,datasets:[{
+  data:[1.28,1.63,1.58,2.02,1.87,2.04,3.13,2.28,2.08,2.56,2.52],
+  backgroundColor:years11.map((_,i)=>i===6?'#BA7517':'rgba(239,159,39,0.7)'),borderRadius:3}]},
+options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+scales:{x:{ticks:{color:tc,font:{size:8}},grid:{display:false}},
+        y:{min:0,max:5,ticks:{color:tc,font:{size:8},callback:v=>v+'%'},grid:{color:gc}}}}
+});
+
+/* GenZ channel */
+new Chart('genzChanChart',{type:'bar',data:{
+  labels:['Organic','Social','Paid','Email','Referral','Direct'],
+  datasets:[
+    {label:'All categories',data:[30,20,20,12,10,8],backgroundColor:'rgba(83,74,183,0.55)',borderRadius:2},
+    {label:'GenZ buyers',   data:[25,28,18,10,12,7],backgroundColor:'rgba(239,159,39,0.8)',borderRadius:2}
+  ]},
+options:{responsive:true,maintainAspectRatio:false,
+plugins:{legend:{labels:{color:tc,font:{size:8},boxWidth:8}}},
+scales:{x:{ticks:{color:tc,font:{size:7}},grid:{display:false}},
+        y:{ticks:{color:tc,font:{size:8},callback:v=>v+'%'},grid:{color:gc}}}}
+});
+
+/* Cohort retention */
+new Chart('retentionChart',{type:'line',data:{
+  labels:['2012','2013','2014','2015','2016','2017','2018','2019','2020','2021'],
+  datasets:[{data:[94.6,88.8,76.4,65.2,51.7,38.1,27.2,19.3,13.0,6.7],
+    borderColor:'#E24B4A',backgroundColor:'rgba(226,75,74,0.12)',fill:true,tension:.4,
+    pointBackgroundColor:'#E24B4A',pointRadius:4}]},
+options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+scales:{x:{ticks:{color:tc,font:{size:8}},grid:{display:false}},
+        y:{min:0,max:100,ticks:{color:tc,font:{size:8},callback:v=>v+'%'},grid:{color:gc}}}}
+});
+
+/* Inventory paradox */
+new Chart('invParadoxChart',{type:'bar',data:{labels:years11,datasets:[
+  {label:'Stockout %', data:[68.2,67.8,67.6,67.5,67.9,67.8,66.5,66.9,66.7,67.5,66.7],backgroundColor:'rgba(226,75,74,0.7)',borderRadius:0},
+  {label:'Overstock %',data:[56.9,66.1,74.0,77.9,77.8,78.7,79.3,81.8,82.0,76.4,76.3],backgroundColor:'rgba(239,159,39,0.55)',borderRadius:0}
+]},options:{responsive:true,maintainAspectRatio:false,
+plugins:{legend:{labels:{color:tc,font:{size:9},boxWidth:9}}},
+scales:{x:{ticks:{color:tc,font:{size:8}},grid:{display:false}},
+        y:{min:40,max:90,ticks:{color:tc,font:{size:8},callback:v=>v+'%'},grid:{color:gc}}}}
+});
+
+/* Forecast */
+new Chart('forecastChart',{type:'line',data:{
+  labels:['Jan-23','Mar-23','May-23','Jul-23','Sep-23','Nov-23','Jan-24','Mar-24','May-24'],
+  datasets:[
+    {label:'Actual',   data:[2.0,3.1,5.2,3.7,2.8,2.1,1.6,2.8,4.9],borderColor:'#534AB7',backgroundColor:'rgba(83,74,183,0.08)',fill:true,tension:.3,pointRadius:3},
+    {label:'Forecast', data:[2.14,3.20,4.80,3.40,2.70,2.00,1.80,3.0,4.5],borderColor:'#1D9E75',borderDash:[5,3],tension:.3,pointRadius:2,fill:false}
+  ]},
+options:{responsive:true,maintainAspectRatio:false,
+plugins:{legend:{labels:{color:tc,font:{size:8},boxWidth:8}}},
+scales:{x:{ticks:{color:tc,font:{size:8},maxRotation:30},grid:{display:false}},
+        y:{ticks:{color:tc,font:{size:8},callback:v=>v+'M'},grid:{color:gc}}}}
+});
+
+/* GenZ projection */
+new Chart('genzProjectChart',{type:'line',data:{
+  labels:['2018','2019','2020','2021','2022','2023F','2024F','2025F'],
+  datasets:[
+    {label:'Actual share',data:[3.13,2.28,2.08,2.56,2.52,null,null,null],borderColor:'#EF9F27',tension:.3,pointRadius:3,fill:false},
+    {label:'Không đầu tư',data:[null,null,null,null,2.52,2.6,2.7,2.8],borderColor:'#AFA9EC',borderDash:[3,3],tension:.3,pointRadius:2,fill:false},
+    {label:'Với GenZ strategy',data:[null,null,null,null,2.52,4.0,6.0,8.0],borderColor:'#1D9E75',borderDash:[5,2],tension:.3,pointRadius:3,fill:false}
+  ]},
+options:{responsive:true,maintainAspectRatio:false,
+plugins:{legend:{labels:{color:tc,font:{size:8},boxWidth:8}}},
+scales:{x:{ticks:{color:tc,font:{size:8}},grid:{display:false}},
+        y:{min:0,max:10,ticks:{color:tc,font:{size:8},callback:v=>v+'%'},grid:{color:gc}}}}
+});
+
+/* RFM donut */
+new Chart('rfmPieChart',{type:'doughnut',data:{
+  labels:['Champions 6.36B','Loyal 5.60B','At Risk ⚠ 1.82B','Potential 1.37B','Hibernating 0.31B','New 0.23B'],
+  datasets:[{data:[6.36,5.60,1.82,1.37,0.31,0.23],
+    backgroundColor:['#534AB7','#1D9E75','#E24B4A','#EF9F27','#888780','#85B7EB'],
+    borderWidth:2,borderColor:'white'}]},
+options:{responsive:true,maintainAspectRatio:false,cutout:'52%',
+plugins:{legend:{labels:{color:tc,font:{size:8},boxWidth:9}}}}
+});
+
+/* Priority matrix */
+new Chart('tradeoffChart',{type:'bubble',data:{datasets:[
+  {label:'① COD',     data:[{x:15,y:88,r:13}],backgroundColor:'rgba(226,75,74,0.75)',borderColor:'#E24B4A'},
+  {label:'② Size',    data:[{x:25,y:73,r:11}],backgroundColor:'rgba(239,159,39,0.75)',borderColor:'#EF9F27'},
+  {label:'③ RFM',     data:[{x:32,y:68,r:11}],backgroundColor:'rgba(83,74,183,0.75)',borderColor:'#534AB7'},
+  {label:'④ GenZ ★',  data:[{x:62,y:87,r:17}],backgroundColor:'rgba(239,159,39,0.9)',borderColor:'#BA7517'},
+  {label:'⑤ Inv AI',  data:[{x:75,y:70,r:15}],backgroundColor:'rgba(29,158,117,0.7)',borderColor:'#1D9E75'},
+]},options:{responsive:true,maintainAspectRatio:false,
+plugins:{legend:{labels:{color:tc,font:{size:9},boxWidth:9}}},
+scales:{x:{min:0,max:100,title:{display:true,text:'← Effort thấp   Effort cao →',color:tc,font:{size:9}},ticks:{color:tc,font:{size:8}},grid:{color:gc}},
+        y:{min:55,max:100,title:{display:true,text:'Business Impact',color:tc,font:{size:9}},ticks:{color:tc,font:{size:8}},grid:{color:gc}}}}
+});
+
+/* Waterfall approx */
+new Chart('waterfallChart',{type:'bar',data:{
+  labels:['Base\n2022','COD\nFix','Size\nGuide','RFM\nPromo','GenZ\nExpand','Inventory\nAI','Total\nPotential'],
+  datasets:[{data:[1170,175,100,90,210,150,1895],
+    backgroundColor:['#AFA9EC','#E24B4A','#EF9F27','#534AB7','#BA7517','#1D9E75','#534AB7'],borderRadius:3}]},
+options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+scales:{x:{ticks:{color:tc,font:{size:8},maxRotation:0},grid:{display:false}},
+        y:{ticks:{color:tc,font:{size:8},callback:v=>v+'M'},grid:{color:gc}}}}
+});
+</script>
+</body>
+</html>
