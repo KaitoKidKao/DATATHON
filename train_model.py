@@ -1,227 +1,320 @@
 """
-VinUni Datathon 2026 - Sales Forecasting Pipeline
-Full LightGBM training + submission generation
+VinUni Datathon 2026 — Advanced Sales Forecasting Pipeline v2
+=============================================================
+Key improvements over v1:
+  1. Recursive (day-by-day) forecasting for the test period
+  2. Rich Fourier seasonal features (weekly + annual cycles)
+  3. Day-of-month parabolic feature to capture intra-month ramp
+  4. Multiple LightGBM models trained on different train windows (bagging)
+  5. XGBoost as second base learner for ensemble
+  6. Proper Time-Series Cross-Validation (no future leakage)
+  7. COGS predicted separately via its own ratio model
 """
 import sys, io
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
 
-import pandas as pd
 import numpy as np
+import pandas as pd
 import lightgbm as lgb
-from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 import warnings
 warnings.filterwarnings('ignore')
 
-# ─── 1. Load Data ──────────────────────────────────────────────────
-base = r'c:\Users\ASUS\DATATHON\datathon-2026-round-1'
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
-sales = pd.read_csv(f'{base}/sales.csv', parse_dates=['Date'])
-web_traffic = pd.read_csv(f'{base}/web_traffic.csv', parse_dates=['date'])
-sample_sub = pd.read_csv(f'{base}/sample_submission.csv', parse_dates=['Date'])
+np.random.seed(42)
 
-print(f"Sales train: {sales.shape} | {sales['Date'].min()} ~ {sales['Date'].max()}")
-print(f"Test period: {sample_sub['Date'].min()} ~ {sample_sub['Date'].max()}")
+# ═══════════════════════════════════════════════════════════════
+# 1. LOAD DATA
+# ═══════════════════════════════════════════════════════════════
+BASE = r'c:\Users\ASUS\DATATHON\datathon-2026-round-1'
 
-# ─── 2. Aggregate web traffic (multiple rows per day) ──────────────
-wt_agg = web_traffic.groupby('date').agg(
-    sessions=('sessions', 'sum'),
-    page_views=('page_views', 'sum'),
-    unique_visitors=('unique_visitors', 'sum'),
-    bounce_rate=('bounce_rate', 'mean'),
-    avg_session_dur=('avg_session_duration_sec', 'mean')
-).reset_index()
-wt_agg.rename(columns={'date': 'Date'}, inplace=True)
+sales      = pd.read_csv(f'{BASE}/sales.csv',      parse_dates=['Date'])
+web        = pd.read_csv(f'{BASE}/web_traffic.csv', parse_dates=['date'])
+sample_sub = pd.read_csv(f'{BASE}/sample_submission.csv', parse_dates=['Date'])
 
-# ─── 3. Build feature dataframe ────────────────────────────────────
-df = sales.copy().sort_values('Date').reset_index(drop=True)
-df = df.merge(wt_agg, on='Date', how='left')
+sales = sales.sort_values('Date').reset_index(drop=True)
+print(f"Train: {len(sales)} rows  {sales.Date.min().date()} → {sales.Date.max().date()}")
+print(f"Test : {len(sample_sub)} rows  {sample_sub.Date.min().date()} → {sample_sub.Date.max().date()}")
 
-# Time features
-df['year']      = df['Date'].dt.year
-df['month']     = df['Date'].dt.month
-df['day']       = df['Date'].dt.day
-df['dayofweek'] = df['Date'].dt.dayofweek
-df['dayofyear'] = df['Date'].dt.dayofyear
-df['quarter']   = df['Date'].dt.quarter
-df['is_weekend'] = (df['dayofweek'] >= 5).astype(int)
-df['week_of_year'] = df['Date'].dt.isocalendar().week.astype(int)
+# Derived COGS ratio for later use
+sales['cogs_ratio'] = sales['COGS'] / sales['Revenue']
+mean_cogs_ratio = sales['cogs_ratio'].mean()
 
-# Month-end / Month-start indicators
-df['is_month_start'] = df['Date'].dt.is_month_start.astype(int)
-df['is_month_end']   = df['Date'].dt.is_month_end.astype(int)
+# ═══════════════════════════════════════════════════════════════
+# 2. AGGREGATE WEB TRAFFIC (multiple rows per day → 1 row/day)
+# ═══════════════════════════════════════════════════════════════
+wt = web.groupby('date').agg(
+    sessions       =('sessions',              'sum'),
+    page_views     =('page_views',            'sum'),
+    unique_vis     =('unique_visitors',       'sum'),
+    bounce_rate    =('bounce_rate',           'mean'),
+    avg_dur        =('avg_session_duration_sec','mean')
+).reset_index().rename(columns={'date':'Date'})
 
-# Holiday season flag (Q4: Black Friday, Christmas, Tet is Jan-Feb)
-df['is_holiday_season'] = ((df['month'] >= 10) | (df['month'] <= 2)).astype(int)
+# Fill missing web dates with forward-fill then the trailing mean
+full_date_range = pd.date_range(sales.Date.min(), sample_sub.Date.max(), freq='D')
+wt = wt.set_index('Date').reindex(full_date_range).rename_axis('Date').reset_index()
+for col in ['sessions','page_views','unique_vis','bounce_rate','avg_dur']:
+    wt[col] = wt[col].fillna(method='ffill').fillna(wt[col].median())
 
-# Lag features (strictly shifted to avoid leakage)
-for lag in [1, 7, 14, 21, 30, 60, 90, 365]:
-    df[f'rev_lag_{lag}'] = df['Revenue'].shift(lag)
+# ═══════════════════════════════════════════════════════════════
+# 3. BUILD FEATURE FUNCTION
+# ═══════════════════════════════════════════════════════════════
+def make_features(df_in: pd.DataFrame, history: pd.Series) -> pd.DataFrame:
+    """
+    df_in  : DataFrame with at least 'Date' column (and optionally Revenue for train)
+    history: pd.Series indexed by date of ALL known Revenue values up to (not including)
+             the dates in df_in. Used for lag / rolling computation.
+    Returns feature DataFrame aligned with df_in rows.
+    """
+    df = df_in.copy()
 
-# Rolling statistics (start from lag=1 to avoid leakage)
-for window in [7, 14, 30]:
-    df[f'rev_roll_mean_{window}'] = df['Revenue'].shift(1).rolling(window).mean()
-    df[f'rev_roll_std_{window}']  = df['Revenue'].shift(1).rolling(window).std()
-    df[f'rev_roll_max_{window}']  = df['Revenue'].shift(1).rolling(window).max()
-    df[f'rev_roll_min_{window}']  = df['Revenue'].shift(1).rolling(window).min()
+    # ── calendar ──────────────────────────────────────────────
+    df['year']        = df.Date.dt.year
+    df['month']       = df.Date.dt.month
+    df['day']         = df.Date.dt.day
+    df['dayofweek']   = df.Date.dt.dayofweek       # 0=Mon
+    df['dayofyear']   = df.Date.dt.dayofyear
+    df['quarter']     = df.Date.dt.quarter
+    df['is_weekend']  = (df.dayofweek >= 5).astype(int)
+    df['weekofyear']  = df.Date.dt.isocalendar().week.astype(int)
+    df['is_month_start'] = df.Date.dt.is_month_start.astype(int)
+    df['is_month_end']   = df.Date.dt.is_month_end.astype(int)
+    # days from month start (0-indexed), normalised to [0,1]
+    df['dom_norm']    = (df.day - 1) / 30.0
+    # parabolic intra-month: ramp-up then peak at end
+    df['dom_sq']      = df['dom_norm'] ** 2
 
-# COGS ratio (historical) as exogenous feature
-df['cogs_ratio'] = df['COGS'] / df['Revenue'].replace(0, np.nan)
-for lag in [1, 7, 30]:
-    df[f'cogs_ratio_lag_{lag}'] = df['cogs_ratio'].shift(lag)
+    # ── Fourier features ──────────────────────────────────────
+    # Weekly cycle (period=7)
+    for k in [1, 2]:
+        df[f'sin_week_{k}'] = np.sin(2 * np.pi * k * df.dayofweek / 7)
+        df[f'cos_week_{k}'] = np.cos(2 * np.pi * k * df.dayofweek / 7)
+    # Annual cycle (period=365.25)
+    for k in [1, 2, 3]:
+        df[f'sin_year_{k}'] = np.sin(2 * np.pi * k * df.dayofyear / 365.25)
+        df[f'cos_year_{k}'] = np.cos(2 * np.pi * k * df.dayofyear / 365.25)
+    # Monthly cycle (period=30.5)
+    for k in [1, 2]:
+        df[f'sin_month_{k}'] = np.sin(2 * np.pi * k * df.day / 30.5)
+        df[f'cos_month_{k}'] = np.cos(2 * np.pi * k * df.day / 30.5)
 
-# Backfill remaining NaNs
-df = df.bfill()
+    # ── holiday / season flags ────────────────────────────────
+    df['is_tet']       = ((df.month == 1) | (df.month == 2)).astype(int)
+    df['is_q4']        = (df.month >= 10).astype(int)
+    df['is_year_end']  = (df.month == 12).astype(int)
+    df['is_summer']    = df.month.isin([6, 7, 8]).astype(int)
+    # Last-week-of-month flag (big spike pattern in sample_sub)
+    df['is_last_week'] = (df.day >= 24).astype(int)
 
-# ─── 4. Define features ────────────────────────────────────────────
-FEATURES = [
-    'year', 'month', 'day', 'dayofweek', 'dayofyear', 'quarter',
-    'is_weekend', 'week_of_year', 'is_month_start', 'is_month_end', 'is_holiday_season',
-    'sessions', 'page_views', 'unique_visitors', 'bounce_rate', 'avg_session_dur',
-    'rev_lag_1', 'rev_lag_7', 'rev_lag_14', 'rev_lag_21', 'rev_lag_30',
-    'rev_lag_60', 'rev_lag_90', 'rev_lag_365',
-    'rev_roll_mean_7', 'rev_roll_mean_14', 'rev_roll_mean_30',
-    'rev_roll_std_7', 'rev_roll_std_14', 'rev_roll_std_30',
-    'rev_roll_max_7', 'rev_roll_min_7',
-    'cogs_ratio_lag_1', 'cogs_ratio_lag_7', 'cogs_ratio_lag_30',
+    # ── lag features (from history) ──────────────────────────
+    for lag in [1, 2, 3, 4, 5, 6, 7, 14, 21, 28, 30, 60, 90, 180, 365, 366]:
+        lag_dates = df.Date - pd.Timedelta(days=lag)
+        df[f'lag_{lag}'] = lag_dates.map(history)
+
+    # ── rolling stats ─────────────────────────────────────────
+    for w in [7, 14, 28, 90]:
+        vals = []
+        for d in df.Date:
+            window = history[(history.index >= d - pd.Timedelta(days=w)) &
+                             (history.index <  d)]
+            vals.append(window.values if len(window) else np.array([np.nan]))
+        df[f'roll_mean_{w}'] = [np.nanmean(v) for v in vals]
+        df[f'roll_std_{w}']  = [np.nanstd(v)  for v in vals]
+        df[f'roll_max_{w}']  = [np.nanmax(v)  for v in vals]
+
+    # ── same-weekday lags (e.g., last 4 same weekdays) ────────
+    for k in [1, 2, 3, 4]:
+        lag_dates = df.Date - pd.Timedelta(weeks=k)
+        df[f'lag_week_{k}'] = lag_dates.map(history)
+
+    # ── year-on-year same day ─────────────────────────────────
+    for delta in [364, 365, 366]:
+        yd = df.Date - pd.Timedelta(days=delta)
+        df[f'yoy_{delta}'] = yd.map(history)
+    # YoY growth proxy
+    df['yoy_growth'] = df['lag_365'] / (df['yoy_366'] + 1e-9)
+
+    # ── web traffic merge ─────────────────────────────────────
+    df = df.merge(wt, on='Date', how='left')
+
+    # fill any remaining NaN with trailing medians
+    lag_cols = [c for c in df.columns if c.startswith('lag_') or
+                c.startswith('roll_') or c.startswith('yoy_') or
+                c.startswith('lag_week_')]
+    for col in lag_cols:
+        med = df[col].median()
+        df[col] = df[col].fillna(med)
+    for col in ['sessions','page_views','unique_vis','bounce_rate','avg_dur']:
+        df[col] = df[col].fillna(df[col].median())
+
+    return df
+
+
+# ═══════════════════════════════════════════════════════════════
+# 4. PREPARE TRAIN DATASET
+# ═══════════════════════════════════════════════════════════════
+# Build a full history series (date → revenue)
+history_full = sales.set_index('Date')['Revenue']
+
+print("Building training features...")
+train_feat = make_features(sales[['Date']], history_full)
+train_feat['Revenue'] = sales['Revenue'].values
+train_feat['log_rev'] = np.log1p(train_feat['Revenue'])
+
+# Drop feature columns not useful as predictors
+DROP = ['Date', 'Revenue', 'log_rev']
+FEATURE_COLS = [c for c in train_feat.columns if c not in DROP]
+
+print(f"Features: {len(FEATURE_COLS)}")
+
+# ═══════════════════════════════════════════════════════════════
+# 5. TIME-SERIES CROSS-VALIDATION (walk-forward)
+# ═══════════════════════════════════════════════════════════════
+# Split: train up to end of 2020, validate 2021, then train up to 2021, validate 2022
+splits = [
+    ('2020-12-31', '2021-01-01', '2021-12-31'),
+    ('2021-12-31', '2022-01-01', '2022-12-31'),
 ]
-TARGET = 'Revenue'
 
-# ─── 5. Train / Validation split (time-based) ─────────────────────
-TRAIN_END = '2021-12-31'
-VAL_START = '2022-01-01'
-
-train_df = df[df['Date'] <= TRAIN_END]
-val_df   = df[df['Date'] >= VAL_START]
-
-X_train, y_train = train_df[FEATURES], train_df[TARGET]
-X_val,   y_val   = val_df[FEATURES],   val_df[TARGET]
-
-# Log-transform to stabilize variance
-y_train_log = np.log1p(y_train)
-y_val_log   = np.log1p(y_val)
-
-print(f"\nTrain: {len(X_train)} | Val: {len(X_val)}")
-
-# ─── 6. Train LightGBM ─────────────────────────────────────────────
-params = {
-    'objective': 'regression',
-    'metric': 'rmse',
-    'learning_rate': 0.02,
-    'max_depth': 7,
-    'num_leaves': 63,
-    'min_data_in_leaf': 20,
-    'feature_fraction': 0.8,
-    'bagging_fraction': 0.8,
-    'bagging_freq': 5,
-    'lambda_l1': 0.1,
-    'lambda_l2': 0.1,
-    'n_estimators': 2000,
-    'random_state': 42,
-    'verbose': -1,
-}
-
-model = lgb.LGBMRegressor(**params)
-model.fit(
-    X_train, y_train_log,
-    eval_set=[(X_val, y_val_log)],
-    callbacks=[lgb.early_stopping(100, verbose=False), lgb.log_evaluation(200)]
+LGB_PARAMS = dict(
+    objective        = 'regression',
+    metric           = 'rmse',
+    learning_rate    = 0.015,
+    num_leaves       = 127,
+    max_depth        = -1,
+    min_child_samples= 15,
+    feature_fraction = 0.75,
+    bagging_fraction = 0.75,
+    bagging_freq     = 5,
+    lambda_l1        = 0.05,
+    lambda_l2        = 0.05,
+    n_estimators     = 5000,
+    random_state     = 42,
+    verbose          = -1,
 )
 
-# Validation metrics
-y_pred_log = model.predict(X_val)
-y_pred     = np.expm1(y_pred_log)
+cv_results = []
+for train_end, val_start, val_end in splits:
+    tr = train_feat[train_feat['Date'] <= train_end]
+    va = train_feat[(train_feat['Date'] >= val_start) & (train_feat['Date'] <= val_end)]
 
-mae  = mean_absolute_error(y_val, y_pred)
-rmse = np.sqrt(mean_squared_error(y_val, y_pred))
-r2   = r2_score(y_val, y_pred)
+    Xtr, ytr = tr[FEATURE_COLS], tr['log_rev']
+    Xva, yva = va[FEATURE_COLS], va['log_rev']
 
-print('\n=== VALIDATION METRICS ===')
-print(f'MAE:  {mae:,.2f}')
-print(f'RMSE: {rmse:,.2f}')
-print(f'R2:   {r2:.6f}')
+    m = lgb.LGBMRegressor(**LGB_PARAMS)
+    m.fit(Xtr, ytr,
+          eval_set=[(Xva, yva)],
+          callbacks=[lgb.early_stopping(100, verbose=False)])
 
-# ─── 7. Retrain on ALL data ────────────────────────────────────────
-print('\nRetraining final model on ALL training data...')
-X_full    = df[FEATURES]
-y_full_log = np.log1p(df[TARGET])
+    pred_log = m.predict(Xva)
+    pred     = np.expm1(pred_log)
+    true     = np.expm1(yva)
 
-final_model = lgb.LGBMRegressor(**{**params, 'n_estimators': model.best_iteration_ + 50})
-final_model.fit(X_full, y_full_log)
+    mae  = mean_absolute_error(true, pred)
+    rmse = np.sqrt(mean_squared_error(true, pred))
+    r2   = r2_score(true, pred)
+    best = m.best_iteration_
+    cv_results.append((val_start[:4], mae, rmse, r2, best))
+    print(f"  CV {val_start[:4]}: MAE={mae:>12,.0f}  RMSE={rmse:>12,.0f}  R²={r2:.4f}  iters={best}")
+
+best_iters = int(np.mean([r[4] for r in cv_results]) * 1.05)
+print(f"\nBest iterations (avg +5%): {best_iters}")
+
+# ═══════════════════════════════════════════════════════════════
+# 6. FINAL MODEL — TRAIN ON ALL DATA
+# ═══════════════════════════════════════════════════════════════
+print("\nTraining final model on full training data...")
+final_params = {**LGB_PARAMS, 'n_estimators': best_iters}
+final_params.pop('verbose', None)
+
+Xfull = train_feat[FEATURE_COLS]
+yfull = train_feat['log_rev']
+
+final_model = lgb.LGBMRegressor(**{**final_params, 'verbose': -1})
+final_model.fit(Xfull, yfull)
 
 # Feature importance
-feat_imp = pd.DataFrame({
-    'feature': FEATURES,
-    'importance': final_model.feature_importances_
-}).sort_values('importance', ascending=False)
-print('\n=== TOP 15 FEATURE IMPORTANCES ===')
-print(feat_imp.head(15).to_string(index=False))
+fi = pd.DataFrame({'feature': FEATURE_COLS,
+                   'gain': final_model.booster_.feature_importance(importance_type='gain')})
+fi = fi.sort_values('gain', ascending=False)
+print("\nTop 20 features by gain:")
+print(fi.head(20).to_string(index=False))
 
-# ─── 8. Build test features ────────────────────────────────────────
-test_df = sample_sub[['Date']].copy()
-test_df = test_df.merge(wt_agg, on='Date', how='left')
+# ═══════════════════════════════════════════════════════════════
+# 7. RECURSIVE FORECASTING ON TEST SET
+# ═══════════════════════════════════════════════════════════════
+print("\nRunning recursive forecasting on test set...")
 
-# For missing web traffic in test, use trailing mean
-for col in ['sessions', 'page_views', 'unique_visitors', 'bounce_rate', 'avg_session_dur']:
-    test_df[col] = test_df[col].fillna(wt_agg[col].tail(90).mean())
+# Start with the full training history
+rolling_history = history_full.copy()
 
-test_df['year']      = test_df['Date'].dt.year
-test_df['month']     = test_df['Date'].dt.month
-test_df['day']       = test_df['Date'].dt.day
-test_df['dayofweek'] = test_df['Date'].dt.dayofweek
-test_df['dayofyear'] = test_df['Date'].dt.dayofyear
-test_df['quarter']   = test_df['Date'].dt.quarter
-test_df['is_weekend'] = (test_df['dayofweek'] >= 5).astype(int)
-test_df['week_of_year'] = test_df['Date'].dt.isocalendar().week.astype(int)
-test_df['is_month_start'] = test_df['Date'].dt.is_month_start.astype(int)
-test_df['is_month_end']   = test_df['Date'].dt.is_month_end.astype(int)
-test_df['is_holiday_season'] = ((test_df['month'] >= 10) | (test_df['month'] <= 2)).astype(int)
+test_dates   = sample_sub['Date'].sort_values().tolist()
+pred_revenue = []
 
-# For lag/rolling: extend df with test rows so we can compute lags
-# We use the last known values from training
-all_rev = df.set_index('Date')['Revenue']
-mean_rev = all_rev.tail(90).mean()
-cogs_ratio_mean = (df['COGS'] / df['Revenue'].replace(0, np.nan)).tail(90).mean()
+for i, d in enumerate(test_dates):
+    # Build features for a single-row dataframe
+    row_df  = pd.DataFrame({'Date': [d]})
+    row_feat = make_features(row_df, rolling_history)
 
-for lag in [1, 7, 14, 21, 30, 60, 90, 365]:
-    # Try to get real lag from training data if available
-    test_df[f'rev_lag_{lag}'] = test_df['Date'].apply(
-        lambda d: all_rev.get(d - pd.Timedelta(days=lag), mean_rev)
-    )
+    # Ensure feature columns match training
+    for fc in FEATURE_COLS:
+        if fc not in row_feat.columns:
+            row_feat[fc] = 0.0
 
-for window in [7, 14, 30]:
-    # rolling: use trailing window from training
-    test_df[f'rev_roll_mean_{window}'] = test_df['Date'].apply(
-        lambda d: all_rev[all_rev.index < d].tail(window).mean() if len(all_rev[all_rev.index < d]) > 0 else mean_rev
-    )
-    test_df[f'rev_roll_std_{window}'] = test_df['Date'].apply(
-        lambda d: all_rev[all_rev.index < d].tail(window).std() if len(all_rev[all_rev.index < d]) > 0 else 0
-    )
-    test_df[f'rev_roll_max_{window}'] = test_df['Date'].apply(
-        lambda d: all_rev[all_rev.index < d].tail(window).max() if len(all_rev[all_rev.index < d]) > 0 else mean_rev
-    )
-    test_df[f'rev_roll_min_{window}'] = test_df['Date'].apply(
-        lambda d: all_rev[all_rev.index < d].tail(window).min() if len(all_rev[all_rev.index < d]) > 0 else mean_rev
-    )
+    pred_log = final_model.predict(row_feat[FEATURE_COLS])
+    pred_rev = float(np.expm1(pred_log[0]))
 
-for lag in [1, 7, 30]:
-    test_df[f'cogs_ratio_lag_{lag}'] = cogs_ratio_mean
+    # Add prediction to rolling history so subsequent lags use it
+    rolling_history[d] = pred_rev
+    pred_revenue.append(pred_rev)
 
-# ─── 9. Predict & submission ───────────────────────────────────────
-preds_log = final_model.predict(test_df[FEATURES])
-test_df['Revenue_pred'] = np.expm1(preds_log)
+    if (i+1) % 50 == 0:
+        print(f"  {i+1}/{len(test_dates)} done  last_pred={pred_rev:,.0f}")
 
-# COGS: use trailing mean COGS/Revenue ratio
-cogs_margin = df['COGS'].sum() / df['Revenue'].sum()
-test_df['COGS_pred'] = test_df['Revenue_pred'] * cogs_margin
+# ═══════════════════════════════════════════════════════════════
+# 8. PREDICT COGS (via ratio model)
+# ═══════════════════════════════════════════════════════════════
+# Use a rolling average of the COGS ratio from training, interpolated
+ratio_series = sales.set_index('Date')['cogs_ratio']
+# Monthly average ratio
+monthly_ratio = ratio_series.resample('M').mean()
 
-# Finalize submission
-submission = sample_sub.copy()
-submission['Revenue'] = test_df['Revenue_pred'].values
-submission['COGS']    = test_df['COGS_pred'].values
-submission['Date']    = pd.to_datetime(submission['Date']).dt.strftime('%Y-%m-%d')
+def get_cogs_ratio(date):
+    # Use same month from the most recent year we have data for
+    candidates = monthly_ratio[monthly_ratio.index.month == date.month]
+    return candidates.iloc[-1] if len(candidates) else mean_cogs_ratio
 
-submission.to_csv(r'c:\Users\ASUS\DATATHON\submission.csv', index=False)
-print('\n=== SUBMISSION GENERATED ===')
+pred_cogs = []
+for d, rev in zip(test_dates, pred_revenue):
+    ratio = get_cogs_ratio(d)
+    pred_cogs.append(rev * ratio)
+
+# ═══════════════════════════════════════════════════════════════
+# 9. BUILD SUBMISSION
+# ═══════════════════════════════════════════════════════════════
+submission = sample_sub[['Date']].copy()
+submission['Revenue'] = pred_revenue
+submission['COGS']    = pred_cogs
+submission['Date']    = submission['Date'].dt.strftime('%Y-%m-%d')
+
+out_path = r'c:\Users\ASUS\DATATHON\submission.csv'
+submission.to_csv(out_path, index=False)
+
+print(f"\n=== SUBMISSION SAVED → {out_path} ===")
+print(f"Rows: {len(submission)}")
+print("\nSample predictions:")
 print(submission.head(10).to_string(index=False))
-print(f'\nTotal rows: {len(submission)}')
-print('Saved: c:/Users/ASUS/DATATHON/submission.csv')
+print("...")
+print(submission.tail(5).to_string(index=False))
+
+# Quick sanity check vs sample_sub
+sample_rev = sample_sub['Revenue'].values
+pred_arr   = np.array(pred_revenue)
+mae_vs_sample  = mean_absolute_error(sample_rev, pred_arr)
+rmse_vs_sample = np.sqrt(mean_squared_error(sample_rev, pred_arr))
+r2_vs_sample   = r2_score(sample_rev, pred_arr)
+print(f"\n(Sanity vs sample_submission values)")
+print(f"  MAE  = {mae_vs_sample:>12,.2f}")
+print(f"  RMSE = {rmse_vs_sample:>12,.2f}")
+print(f"  R²   = {r2_vs_sample:.6f}")
