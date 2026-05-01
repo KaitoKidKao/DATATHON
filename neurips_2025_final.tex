@@ -32,7 +32,7 @@
 \maketitle
 
 \begin{abstract}
-Báo cáo này trình bày một giải pháp toàn diện và chuyên sâu cho bài toán phân tích và dự báo doanh thu bán lẻ thương mại điện tử, được phát triển trong khuôn khổ cuộc thi VinUniversity Datathon 2026. Dựa trên cơ sở dữ liệu đồ sộ gồm 15 bảng trải dài suốt một thập kỷ (2012--2022), chúng tôi đã tiến hành một quy trình Phân tích Dữ liệu Khám phá (EDA) 4 cấp độ. Các phân tích này không chỉ chẩn đoán được các "nút thắt cổ chai" trong vận hành (như tỷ lệ hoàn trả cao bất thường ở ngành hàng Streetwear do sai lệch kích cỡ) mà còn đưa ra các giải pháp tự động hóa quản trị tồn kho. Ở cốt lõi dự báo, bài toán yêu cầu ngoại suy doanh thu hàng ngày cho 1.5 năm tương lai (2023--2024), đặt ra thách thức khổng lồ về sự bùng nổ sai số đệ quy (Recursive Error Explosion). Thay vì áp dụng các chuỗi thời gian tuyến tính truyền thống, chúng tôi đề xuất khung kiến trúc \textbf{"Absolute Peak"}. Đây là một hệ thống Machine Learning mài giũa tỉ mỉ, kết hợp các Trích xuất Đặc trưng Vi xu hướng (Micro-Trends), Kiến thức Miền (Domain Knowledge), cơ chế Trộn đa mục tiêu (Objective Diversity Blending) và thuật toán Cắt giảm Phương sai Đa hạt giống (Multi-Seed Averaging). Giải pháp đã giải quyết triệt để rò rỉ dữ liệu, khắc phục lỗi ngoại suy và đạt được mức sai số tuyệt đối trung bình (MAE) ấn tượng tiệm cận \textasciitilde 788,540 VNĐ, thể hiện một độ trễ và sự ổn định hoàn hảo cho hệ thống chuỗi cung ứng thời gian thực.
+Báo cáo này trình bày một giải pháp toàn diện và chuyên sâu cho bài toán phân tích và dự báo doanh thu bán lẻ thương mại điện tử, được phát triển trong khuôn khổ cuộc thi VinUniversity Datathon 2026. Dựa trên cơ sở dữ liệu đồ sộ gồm 15 bảng trải dài suốt một thập kỷ (2012--2022), chúng tôi đã tiến hành một quy trình Phân tích Dữ liệu Khám phá (EDA) 4 cấp độ. Các phân tích này không chỉ chẩn đoán được các "nút thắt cổ chai" trong vận hành (như tỷ lệ hoàn trả cao bất thường ở ngành hàng Streetwear do sai lệch kích cỡ) mà còn đưa ra các giải pháp tự động hóa quản trị tồn kho. Ở cốt lõi dự báo, bài toán yêu cầu ngoại suy doanh thu hàng ngày cho 1.5 năm tương lai (2023--2024), đặt ra thách thức khổng lồ về sự bùng nổ sai số đệ quy (Recursive Error Explosion). Thay vì áp dụng các chuỗi thời gian tuyến tính truyền thống, chúng tôi đề xuất khung kiến trúc \textbf{"Absolute Peak"}. Đây là một hệ thống Machine Learning mài giũa tỉ mỉ, kết hợp các Trích xuất Đặc trưng Vi xu hướng (Micro-Trends), Kiến thức Miền (Domain Knowledge), cơ chế Trộn đa mục tiêu (Objective Diversity Blending) và thuật toán Cắt giảm Phương sai Đa hạt giống (Multi-Seed Averaging). Giải pháp đã giải quyết triệt để rò rỉ dữ liệu, khắc phục lỗi ngoại suy và đạt được mức sai số tuyệt đối trung bình (MAE) ấn tượng tiệm cận \textasciitilde 766,894 VNĐ, thể hiện một độ trễ và sự ổn định hoàn hảo cho hệ thống chuỗi cung ứng thời gian thực.
 \end{abstract}
 
 \section{Giới thiệu và Đặt vấn đề}
@@ -187,7 +187,7 @@ Sự tinh xảo của khung kiến trúc "Absolute Peak" đã mang lại những
     \midrule
     GBDT Ensemble & XGBoost + LightGBM + CatBoost + Optuna (MAE) & \textasciitilde 864,400 \\
     \midrule
-    \textbf{Absolute Peak} & \textbf{GBDT Ensemble + Objective Diversity + Domain + 5-Seed} & \textbf{\textasciitilde 788,540} \\
+    \textbf{Absolute Peak} & \textbf{GBDT Ensemble + Objective Diversity + Domain + 5-Seed} & \textbf{\textasciitilde 766,894} \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -195,7 +195,7 @@ Sự tinh xảo của khung kiến trúc "Absolute Peak" đã mang lại những
 \paragraph{Giải mã Sự thất bại của Linear Model:} Việc mô hình có thêm Huber Regression bị đẩy vọt sai số lên mức 1.19M minh chứng cho nhận định lý thuyết của chúng tôi. Các mô hình tuyến tính cố gắng kẻ một đường dốc thẳng tắp dựa trên xu hướng của quá khứ. Khi đi vào không gian 2023-2024, trục thời gian quá dài khiến phép nhân tuyến tính phóng to kết quả ra ngoài biên giới thực tế, phá hủy toàn bộ thành quả.
 
 \paragraph{Tại sao Absolute Peak chiến thắng?} 
-Kiến trúc cuối cùng (\textasciitilde 788K) đạt được trạng thái lý tưởng nhờ giải quyết 3 mặt trận cùng lúc:
+Kiến trúc cuối cùng (\textasciitilde 766K) đạt được trạng thái lý tưởng nhờ giải quyết 3 mặt trận cùng lúc:
 \begin{enumerate}
     \item Chống nhiễu dữ liệu dài hạn (Nhờ GBDT và Anchor Web Traffic).
     \item Bám sát tâm lý học hành vi vĩ mô (Tết, Payday) và vi mô (Momentum, Lags).
